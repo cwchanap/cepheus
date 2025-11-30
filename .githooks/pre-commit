@@ -1,0 +1,38 @@
+#!/bin/sh
+# Pre-commit hook for Rust projects
+# Runs rustfmt and clippy before allowing commits
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if there are any staged Rust files
+STAGED_RS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
+
+if [ -z "$STAGED_RS_FILES" ]; then
+    echo "No Rust files staged, skipping Rust checks."
+    exit 0
+fi
+
+# Run rustfmt check
+echo "Checking formatting with rustfmt..."
+if ! cargo fmt --check; then
+    echo ""
+    echo "❌ Formatting check failed!"
+    echo "Run 'cargo fmt' to fix formatting issues."
+    exit 1
+fi
+echo "✓ Formatting check passed"
+
+# Run clippy
+echo "Running clippy..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    echo ""
+    echo "❌ Clippy check failed!"
+    echo "Fix the warnings above before committing."
+    exit 1
+fi
+echo "✓ Clippy check passed"
+
+echo ""
+echo "✅ All pre-commit checks passed!"
