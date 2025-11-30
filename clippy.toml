@@ -1,0 +1,8 @@
+# Clippy configuration
+# https://doc.rust-lang.org/clippy/
+
+# Maximum allowed cognitive complexity for functions
+cognitive-complexity-threshold = 25
+
+# Maximum allowed nesting for control flow statements
+max-fn-params-bools = 3
