@@ -223,3 +223,9 @@ Define types with `#[derive(Serialize, Deserialize)]` in backend, re-export for 
 ## VS Code Integration
 
 The project includes VS Code chat prompt recommendations for Speckit commands. Suggested prompts appear in chat interface for constitution, specify, plan, tasks, and implement workflows.
+
+## Active Technologies
+- Rust (latest stable, currently using workspace with Tauri v2 + Leptos 0.7) (001-mvp-terminal)
+
+## Recent Changes
+- 001-mvp-terminal: Added Rust (latest stable, currently using workspace with Tauri v2 + Leptos 0.7)
