@@ -1,0 +1,208 @@
+use std::sync::Arc;
+use tokio::process::Child;
+use tokio::sync::Mutex;
+
+use super::HistoryBuffer;
+
+/// Tracks the current state of the shell process.
+pub struct ShellState {
+    /// Current running process (if any)
+    pub process: Arc<Mutex<Option<Child>>>,
+    /// Process ID of running command
+    pub pid: Arc<Mutex<Option<u32>>>,
+    /// Current working directory
+    pub cwd: Arc<Mutex<String>>,
+    /// Is shell currently executing a command?
+    pub is_busy: Arc<Mutex<bool>>,
+}
+
+impl ShellState {
+    /// Create a new shell state with the given initial working directory
+    pub fn new(initial_cwd: String) -> Self {
+        Self {
+            process: Arc::new(Mutex::new(None)),
+            pid: Arc::new(Mutex::new(None)),
+            cwd: Arc::new(Mutex::new(initial_cwd)),
+            is_busy: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    /// Get the current working directory
+    pub async fn get_cwd(&self) -> String {
+        self.cwd.lock().await.clone()
+    }
+
+    /// Set the current working directory
+    pub async fn set_cwd(&self, cwd: String) {
+        *self.cwd.lock().await = cwd;
+    }
+
+    /// Check if shell is currently busy
+    pub async fn is_busy(&self) -> bool {
+        *self.is_busy.lock().await
+    }
+
+    /// Set the busy state
+    pub async fn set_busy(&self, busy: bool) {
+        *self.is_busy.lock().await = busy;
+    }
+
+    /// Get the current process ID (if any)
+    pub async fn get_pid(&self) -> Option<u32> {
+        *self.pid.lock().await
+    }
+
+    /// Set the current process and its PID
+    pub async fn set_process(&self, child: Child) {
+        let pid = child.id();
+        *self.process.lock().await = Some(child);
+        *self.pid.lock().await = pid;
+    }
+
+    /// Take the current process (removing it from state)
+    pub async fn take_process(&self) -> Option<Child> {
+        let process = self.process.lock().await.take();
+        *self.pid.lock().await = None;
+        process
+    }
+
+    /// Clear the current process reference
+    pub async fn clear_process(&self) {
+        *self.process.lock().await = None;
+        *self.pid.lock().await = None;
+    }
+}
+
+impl Default for ShellState {
+    fn default() -> Self {
+        let initial_cwd = std::env::current_dir()
+            .map_or_else(|_| "/".to_string(), |p| p.to_string_lossy().to_string());
+        Self::new(initial_cwd)
+    }
+}
+
+impl Clone for ShellState {
+    fn clone(&self) -> Self {
+        Self {
+            process: Arc::clone(&self.process),
+            pid: Arc::clone(&self.pid),
+            cwd: Arc::clone(&self.cwd),
+            is_busy: Arc::clone(&self.is_busy),
+        }
+    }
+}
+
+/// Manages shell process lifecycle and history buffer
+pub struct ShellManager {
+    /// Shell state (process, cwd, busy flag)
+    pub shell_state: ShellState,
+    /// History buffer for terminal output
+    pub history_buffer: HistoryBuffer,
+}
+
+impl ShellManager {
+    /// Create a new shell manager
+    pub fn new() -> Self {
+        Self {
+            shell_state: ShellState::default(),
+            history_buffer: HistoryBuffer::default(),
+        }
+    }
+
+    /// Create a new shell manager with custom capacity
+    pub fn with_capacity(buffer_capacity: usize) -> Self {
+        Self {
+            shell_state: ShellState::default(),
+            history_buffer: HistoryBuffer::new(buffer_capacity),
+        }
+    }
+
+    /// Get the current working directory
+    pub async fn get_cwd(&self) -> String {
+        self.shell_state.get_cwd().await
+    }
+
+    /// Check if shell is currently busy
+    pub async fn is_busy(&self) -> bool {
+        self.shell_state.is_busy().await
+    }
+
+    /// Get the current process ID (if a command is running)
+    pub async fn get_running_pid(&self) -> Option<u32> {
+        if self.shell_state.is_busy().await {
+            self.shell_state.get_pid().await
+        } else {
+            None
+        }
+    }
+}
+
+impl Default for ShellManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Clone for ShellManager {
+    fn clone(&self) -> Self {
+        Self {
+            shell_state: self.shell_state.clone(),
+            history_buffer: self.history_buffer.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_shell_state_default_cwd() {
+        let state = ShellState::default();
+        let cwd = state.get_cwd().await;
+        assert!(!cwd.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_shell_state_set_cwd() {
+        let state = ShellState::new("/tmp".to_string());
+        assert_eq!(state.get_cwd().await, "/tmp");
+
+        state.set_cwd("/home/user".to_string()).await;
+        assert_eq!(state.get_cwd().await, "/home/user");
+    }
+
+    #[tokio::test]
+    async fn test_shell_state_busy_flag() {
+        let state = ShellState::default();
+        assert!(!state.is_busy().await);
+
+        state.set_busy(true).await;
+        assert!(state.is_busy().await);
+
+        state.set_busy(false).await;
+        assert!(!state.is_busy().await);
+    }
+
+    #[tokio::test]
+    async fn test_shell_manager_creation() {
+        let manager = ShellManager::new();
+        assert!(!manager.is_busy().await);
+        assert!(manager.history_buffer.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_shell_manager_with_custom_capacity() {
+        let manager = ShellManager::with_capacity(100);
+        assert_eq!(manager.history_buffer.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_shell_manager_clone_shares_state() {
+        let manager = ShellManager::new();
+        let cloned = manager.clone();
+
+        manager.shell_state.set_busy(true).await;
+        assert!(cloned.is_busy().await);
+    }
+}
