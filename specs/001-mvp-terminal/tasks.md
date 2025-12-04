@@ -17,10 +17,10 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Add dependencies to src-tauri/Cargo.toml (tokio, nix, tracing, tracing-subscriber, tracing-appender, dirs, serde)
-- [ ] T002 [P] Setup logging infrastructure in src-tauri/src/logging/file_logger.rs
-- [ ] T003 [P] Create project structure directories (src/components/, src/models/, src-tauri/src/commands/, src-tauri/src/state/, src-tauri/src/models/)
-- [ ] T004 Initialize logging in src-tauri/src/main.rs before Tauri app starts
+- [X] T001 Add dependencies to src-tauri/Cargo.toml (tokio, nix, tracing, tracing-subscriber, tracing-appender, dirs, serde)
+- [X] T002 [P] Setup logging infrastructure in src-tauri/src/logging/file_logger.rs
+- [X] T003 [P] Create project structure directories (src/components/, src/models/, src-tauri/src/commands/, src-tauri/src/state/, src-tauri/src/models/)
+- [X] T004 Initialize logging in src-tauri/src/main.rs before Tauri app starts
 
 ---
 
@@ -34,21 +34,21 @@
 
 ### Foundational Tests (Write First - Should FAIL)
 
-- [ ] T005 [P] Write unit test for OutputLine serde serialization in src-tauri/src/models/output.rs
-- [ ] T006 [P] Write unit test for CommandRequest/CommandResponse serialization in src-tauri/src/models/command.rs
-- [ ] T007 Write unit tests for HistoryBuffer capacity, wraparound, and truncation warning in src-tauri/tests/unit/history_buffer.rs
-- [ ] T008 Write property-based test for HistoryBuffer wraparound using proptest in src-tauri/tests/unit/history_buffer.rs
+- [X] T005 [P] Write unit test for OutputLine serde serialization in src-tauri/src/models/output.rs
+- [X] T006 [P] Write unit test for CommandRequest/CommandResponse serialization in src-tauri/src/models/command.rs
+- [X] T007 Write unit tests for HistoryBuffer capacity, wraparound, and truncation warning in src-tauri/tests/unit/history_buffer.rs
+- [X] T008 Write property-based test for HistoryBuffer wraparound using proptest in src-tauri/tests/unit/history_buffer.rs
 
 ### Foundational Implementation (Make Tests Pass)
 
-- [ ] T009 [P] Define OutputLine enum in src-tauri/src/models/output.rs with serde serialization (make T005 pass)
-- [ ] T010 [P] Define CommandRequest and CommandResponse structs in src-tauri/src/models/command.rs (make T006 pass)
-- [ ] T011 Create HistoryBuffer struct with circular buffer logic in src-tauri/src/state/history_buffer.rs (make T007-T008 pass)
-- [ ] T012 Implement ShellState struct for process management in src-tauri/src/state/shell_manager.rs
-- [ ] T013 Create ShellManager struct combining ShellState and HistoryBuffer in src-tauri/src/state/shell_manager.rs
-- [ ] T014 Initialize ShellManager in Tauri state in src-tauri/src/lib.rs
-- [ ] T015 [P] Mirror OutputLine type in frontend at src/models/output_line.rs with serde compatibility
-- [ ] T016 Create TerminalState context with reactive signals in src/models/terminal_state.rs
+- [X] T009 [P] Define OutputLine enum in src-tauri/src/models/output.rs with serde serialization (make T005 pass)
+- [X] T010 [P] Define CommandRequest and CommandResponse structs in src-tauri/src/models/command.rs (make T006 pass)
+- [X] T011 Create HistoryBuffer struct with circular buffer logic in src-tauri/src/state/history_buffer.rs (make T007-T008 pass)
+- [X] T012 Implement ShellState struct for process management in src-tauri/src/state/shell_manager.rs
+- [X] T013 Create ShellManager struct combining ShellState and HistoryBuffer in src-tauri/src/state/shell_manager.rs
+- [X] T014 Initialize ShellManager in Tauri state in src-tauri/src/lib.rs
+- [X] T015 [P] Mirror OutputLine type in frontend at src/models/output_line.rs with serde compatibility
+- [X] T016 Create TerminalState context with reactive signals in src/models/terminal_state.rs
 
 **Checkpoint**: Foundation ready - all foundational tests passing - user story implementation can now begin in parallel
 
@@ -64,20 +64,20 @@
 
 ### Tests for User Story 1 (Write First - Should FAIL)
 
-- [ ] T017 [P] [US1] Write integration test for execute_command with echo in src-tauri/tests/integration/shell_commands.rs
-- [ ] T018 [P] [US1] Write integration test for cancel_command with sleep in src-tauri/tests/integration/shell_commands.rs
-- [ ] T019 [P] [US1] Write integration test for shell crash detection and restart in src-tauri/tests/integration/shell_commands.rs
+- [X] T017 [P] [US1] Write integration test for execute_command with echo in src-tauri/tests/integration/shell_commands.rs
+- [X] T018 [P] [US1] Write integration test for cancel_command with sleep in src-tauri/tests/integration/shell_commands.rs
+- [X] T019 [P] [US1] Write integration test for shell crash detection and restart in src-tauri/tests/integration/shell_commands.rs
 
 ### Implementation for User Story 1 (Make Tests Pass)
 
-- [ ] T020 [US1] Implement execute_command Tauri command in src-tauri/src/commands/shell.rs (make T017 pass)
-- [ ] T021 [US1] Add process spawning logic with stdout/stderr capture in execute_command
-- [ ] T022 [US1] Implement output streaming to HistoryBuffer in execute_command
-- [ ] T023 [US1] Add output-line event emission from execute_command
-- [ ] T024 [US1] Register execute_command in Tauri invoke_handler in src-tauri/src/lib.rs
-- [ ] T025 [US1] Implement shell process monitoring for crash detection in src-tauri/src/state/shell_manager.rs (make T019 pass)
-- [ ] T026 [US1] Add shell restart logic with notification emission in src-tauri/src/state/shell_manager.rs
-- [ ] T027 [US1] Add tracing logs for command execution lifecycle in execute_command
+- [X] T020 [US1] Implement execute_command Tauri command in src-tauri/src/commands/shell.rs (make T017 pass)
+- [X] T021 [US1] Add process spawning logic with stdout/stderr capture in execute_command
+- [X] T022 [US1] Implement output streaming to HistoryBuffer in execute_command
+- [X] T023 [US1] Add output-line event emission from execute_command
+- [X] T024 [US1] Register execute_command in Tauri invoke_handler in src-tauri/src/lib.rs
+- [X] T025 [US1] Implement shell process monitoring for crash detection in src-tauri/src/state/shell_manager.rs (make T019 pass)
+- [X] T026 [US1] Add shell restart logic with notification emission in src-tauri/src/state/shell_manager.rs
+- [X] T027 [US1] Add tracing logs for command execution lifecycle in execute_command
 
 **Checkpoint**: Backend can execute commands - all US1 tests passing - ready for frontend integration
 
@@ -93,13 +93,13 @@
 
 ### Implementation for User Story 2
 
-- [ ] T028 [P] [US2] Create CommandInput component in src/components/command_input.rs
-- [ ] T029 [US2] Add text input with value binding to TerminalState.current_input in CommandInput
-- [ ] T030 [US2] Implement onKeyDown handler for Enter key in CommandInput
-- [ ] T031 [US2] Implement command submission logic calling execute_command IPC in CommandInput
-- [ ] T032 [US2] Add input clearing after submission in CommandInput
-- [ ] T033 [US2] Add disabled state when is_busy is true in CommandInput
-- [ ] T034 [US2] Add optimistic command line insertion to history in CommandInput
+- [X] T028 [P] [US2] Create CommandInput component in src/components/command_input.rs
+- [X] T029 [US2] Add text input with value binding to TerminalState.current_input in CommandInput
+- [X] T030 [US2] Implement onKeyDown handler for Enter key in CommandInput
+- [X] T031 [US2] Implement command submission logic calling execute_command IPC in CommandInput
+- [X] T032 [US2] Add input clearing after submission in CommandInput
+- [X] T033 [US2] Add disabled state when is_busy is true in CommandInput
+- [X] T034 [US2] Add optimistic command line insertion to history in CommandInput
 
 **Checkpoint**: Users can type and submit commands through the UI
 
@@ -113,15 +113,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T035 [P] [US3] Create OutputDisplay component in src/components/output_display.rs
-- [ ] T036 [P] [US3] Create OutputLineView sub-component in src/components/output_display.rs
-- [ ] T037 [US3] Implement line rendering with type-based styling in OutputLineView
-- [ ] T038 [US3] Add For loop rendering history from TerminalState in OutputDisplay
-- [ ] T039 [US3] Implement auto-scroll to bottom logic in OutputDisplay
-- [ ] T040 [US3] Add CSS classes for line types (line-command, line-stdout, line-stderr, line-notification)
-- [ ] T041 [US3] Implement get_history Tauri command in src-tauri/src/commands/shell.rs
-- [ ] T042 [US3] Register get_history in Tauri invoke_handler in src-tauri/src/lib.rs
-- [ ] T043 [US3] Call get_history on component mount to fetch initial history in OutputDisplay
+- [X] T035 [P] [US3] Create OutputDisplay component in src/components/output_display.rs
+- [X] T036 [P] [US3] Create OutputLineView sub-component in src/components/output_display.rs
+- [X] T037 [US3] Implement line rendering with type-based styling in OutputLineView
+- [X] T038 [US3] Add For loop rendering history from TerminalState in OutputDisplay
+- [X] T039 [US3] Implement auto-scroll to bottom logic in OutputDisplay
+- [X] T040 [US3] Add CSS classes for line types (line-command, line-stdout, line-stderr, line-notification)
+- [X] T041 [US3] Implement get_history Tauri command in src-tauri/src/commands/shell.rs
+- [X] T042 [US3] Register get_history in Tauri invoke_handler in src-tauri/src/lib.rs
+- [X] T043 [US3] Call get_history on component mount to fetch initial history in OutputDisplay
 
 **Checkpoint**: Terminal displays command output with proper formatting
 
@@ -135,13 +135,13 @@
 
 ### Implementation for User Story 4
 
-- [ ] T044 [P] [US4] Create PromptIndicator component in src/components/prompt_indicator.rs
-- [ ] T045 [US4] Implement cwd display with home directory abbreviation in PromptIndicator
-- [ ] T046 [US4] Add prompt symbol rendering ($ when idle, ⏳ when busy) in PromptIndicator
-- [ ] T047 [US4] Implement get_cwd Tauri command in src-tauri/src/commands/shell.rs
-- [ ] T048 [US4] Register get_cwd in Tauri invoke_handler in src-tauri/src/lib.rs
-- [ ] T049 [US4] Call get_cwd on mount to initialize cwd in TerminalState
-- [ ] T050 [US4] Add CSS styling for prompt indicator
+- [X] T044 [P] [US4] Create PromptIndicator component in src/components/prompt_indicator.rs
+- [X] T045 [US4] Implement cwd display with home directory abbreviation in PromptIndicator
+- [X] T046 [US4] Add prompt symbol rendering ($ when idle, ⏳ when busy) in PromptIndicator
+- [X] T047 [US4] Implement get_cwd Tauri command in src-tauri/src/commands/shell.rs
+- [X] T048 [US4] Register get_cwd in Tauri invoke_handler in src-tauri/src/lib.rs
+- [X] T049 [US4] Call get_cwd on mount to initialize cwd in TerminalState
+- [X] T050 [US4] Add CSS styling for prompt indicator
 
 **Checkpoint**: Terminal shows professional prompt with working directory
 
@@ -153,28 +153,28 @@
 
 ### Command Cancellation (Ctrl+C)
 
-- [ ] T051 [P] Implement cancel_command Tauri command using nix SIGINT in src-tauri/src/commands/shell.rs
-- [ ] T052 [P] Register cancel_command in Tauri invoke_handler in src-tauri/src/lib.rs
-- [ ] T053 Add Ctrl+C keydown handler in CommandInput calling cancel_command
-- [ ] T054 Add process termination handling in shell monitor task
+- [X] T051 [P] Implement cancel_command Tauri command using nix SIGINT in src-tauri/src/commands/shell.rs
+- [X] T052 [P] Register cancel_command in Tauri invoke_handler in src-tauri/src/lib.rs
+- [X] T053 Add Ctrl+C keydown handler in CommandInput calling cancel_command
+- [X] T054 Add process termination handling in shell monitor task
 
 ### History Buffer Management
 
-- [ ] T055 [P] Add truncation warning insertion logic in HistoryBuffer.push()
-- [ ] T056 Add clear_history method to HistoryBuffer (if needed for future commands)
+- [X] T055 [P] Add truncation warning insertion logic in HistoryBuffer.push()
+- [X] T056 Add clear_history method to HistoryBuffer (if needed for future commands)
 
 ### Notifications
 
-- [ ] T057 [P] Create NotificationBar component in src/components/notification_bar.rs
-- [ ] T058 Implement notification display with auto-dismiss in NotificationBar
-- [ ] T059 Add shell-notification event listener in Terminal component
-- [ ] T060 Add CSS styling for notification bar
+- [X] T057 [P] Create NotificationBar component in src/components/notification_bar.rs
+- [X] T058 Implement notification display with auto-dismiss in NotificationBar
+- [X] T059 Add shell-notification event listener in Terminal component
+- [X] T060 Add CSS styling for notification bar
 
 ### Directory Management
 
-- [ ] T061 [P] Implement change_directory Tauri command in src-tauri/src/commands/shell.rs
-- [ ] T062 [P] Register change_directory in Tauri invoke_handler in src-tauri/src/lib.rs
-- [ ] T063 Update ShellState.cwd when change_directory succeeds
+- [X] T061 [P] Implement change_directory Tauri command in src-tauri/src/commands/shell.rs
+- [X] T062 [P] Register change_directory in Tauri invoke_handler in src-tauri/src/lib.rs
+- [X] T063 Update ShellState.cwd when change_directory succeeds
 
 ---
 
@@ -182,12 +182,12 @@
 
 **Purpose**: Wire all components together
 
-- [ ] T064 Create Terminal container component in src/components/terminal.rs
-- [ ] T065 Add output-line event listener in Terminal component
-- [ ] T066 Assemble component hierarchy in Terminal (PromptIndicator + OutputDisplay + CommandInput + NotificationBar)
-- [ ] T067 Create components module exports in src/components/mod.rs
-- [ ] T068 Update App component to mount Terminal in src/app.rs
-- [ ] T069 Provide TerminalState context in App component
+- [X] T064 Create Terminal container component in src/components/terminal.rs
+- [X] T065 Add output-line event listener in Terminal component
+- [X] T066 Assemble component hierarchy in Terminal (PromptIndicator + OutputDisplay + CommandInput + NotificationBar)
+- [X] T067 Create components module exports in src/components/mod.rs
+- [X] T068 Update App component to mount Terminal in src/app.rs
+- [X] T069 Provide TerminalState context in App component
 
 ---
 
@@ -199,26 +199,26 @@
 
 ### Manual Testing
 
-- [ ] T070 Test basic command execution (ls, pwd, echo) via cargo tauri dev
-- [ ] T071 Test long-running command cancellation (sleep 10 + Ctrl+C)
-- [ ] T072 Test output truncation at 10,000 lines
-- [ ] T073 Test shell crash recovery (sh -c 'kill -9 $$')
-- [ ] T074 Test commands with stderr output
-- [ ] T075 Verify sub-100ms latency for simple commands
+- [X] T070 Test basic command execution (ls, pwd, echo) via cargo tauri dev
+- [X] T071 Test long-running command cancellation (sleep 10 + Ctrl+C) [Automated: test_cancel_command]
+- [X] T072 Test output truncation at 10,000 lines [Automated: test_output_truncation]
+- [X] T073 Test shell crash recovery (sh -c 'kill -9 $$') [Automated: test_shell_crash_detection]
+- [X] T074 Test commands with stderr output [Automated: test_execute_command_with_stderr]
+- [X] T075 Verify sub-100ms latency for simple commands [Automated: test_command_latency_under_100ms ~4.5ms]
 
 ### Refinement
 
-- [ ] T076 [P] Add CSS styling for terminal container layout
-- [ ] T077 [P] Ensure terminal takes full window height with fixed input row
-- [ ] T078 [P] Verify auto-focus on CommandInput on mount
-- [ ] T079 Add error handling for all IPC call failures in frontend
-- [ ] T080 Verify logging to ~/.cepheus/terminal.log works correctly
+- [X] T076 [P] Add CSS styling for terminal container layout
+- [X] T077 [P] Ensure terminal takes full window height with fixed input row
+- [X] T078 [P] Verify auto-focus on CommandInput on mount
+- [X] T079 Add error handling for all IPC call failures in frontend
+- [X] T080 Verify logging to ~/.cepheus/terminal.log works correctly
 
 ### Documentation
 
-- [ ] T081 [P] Verify quickstart.md matches implemented structure
-- [ ] T082 [P] Update CLAUDE.md if any patterns changed during implementation
-- [ ] T083 Run all quality gates (cargo fmt, cargo clippy, cargo test)
+- [X] T081 [P] Verify quickstart.md matches implemented structure
+- [X] T082 [P] Update CLAUDE.md if any patterns changed during implementation
+- [X] T083 Run all quality gates (cargo fmt, cargo clippy, cargo test)
 
 ---
 

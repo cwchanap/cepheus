@@ -89,7 +89,13 @@ This is a Cargo workspace with two crates:
 
 ### Frontend (Leptos/WASM)
 - **Entry**: `src/main.rs` - mounts root `<App/>` component
-- **Components**: `src/app.rs` - currently contains main App component
+- **Components**: `src/app.rs` - root App providing TerminalState context
+- **Terminal**: `src/components/terminal.rs` - main container with event listeners
+- **Input**: `src/components/command_input.rs` - text input with Enter/Ctrl+C handlers
+- **Output**: `src/components/output_display.rs` - scrollable history renderer
+- **Prompt**: `src/components/prompt_indicator.rs` - CWD display with busy indicator
+- **Notifications**: `src/components/notification_bar.rs` - auto-dismiss alerts
+- **Models**: `src/models/` - TerminalState, OutputLine (frontend mirror)
 - **Architecture**: Component-based reactive UI using Leptos signals
 - **IPC**: Calls Tauri commands via `window.__TAURI__.core.invoke()`
 - **Patterns**:
@@ -100,6 +106,10 @@ This is a Cargo workspace with two crates:
 ### Backend (Tauri/Rust)
 - **Entry**: `src-tauri/src/main.rs` - calls `cepheus_lib::run()`
 - **Library**: `src-tauri/src/lib.rs` - contains Tauri app setup and command handlers
+- **Commands**: `src-tauri/src/commands/shell.rs` - shell execution commands
+- **State**: `src-tauri/src/state/` - ShellManager, ShellState, HistoryBuffer
+- **Models**: `src-tauri/src/models/` - OutputLine, CommandRequest/Response
+- **Logging**: `src-tauri/src/logging/file_logger.rs` - logs to ~/.cepheus/terminal.log
 - **Commands**: Marked with `#[tauri::command]` macro, registered in `invoke_handler`
 - **IPC**: Commands invoked from frontend, serialized via serde
 - **Plugins**: Currently uses `tauri-plugin-opener`

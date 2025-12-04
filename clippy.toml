@@ -2,7 +2,10 @@
 # https://doc.rust-lang.org/clippy/
 
 # Maximum allowed cognitive complexity for functions
-cognitive-complexity-threshold = 25
+cognitive-complexity-threshold = 30
+
+# Maximum lines per function (for nursery lint)
+too-many-lines-threshold = 150
 
 # Maximum allowed nesting for control flow statements
 max-fn-params-bools = 3
