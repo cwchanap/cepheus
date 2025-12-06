@@ -21,20 +21,36 @@ pub struct CommandResponse {
 }
 
 impl CommandResponse {
-    /// Create a successful command response
-    pub const fn success(exit_code: i32) -> Self {
+    /// Create a successful command response with exit code 0.
+    #[must_use]
+    pub const fn success() -> Self {
         Self {
-            success: exit_code == 0,
-            exit_code: Some(exit_code),
+            success: true,
+            exit_code: Some(0),
             error: None,
         }
     }
 
-    /// Create a failed command response
-    pub fn failure(error: impl Into<String>) -> Self {
+    /// Create a command response from an exit code.
+    /// Sets success = true if exit_code == 0, false otherwise.
+    #[must_use]
+    pub fn with_exit_code(exit_code: i32) -> Self {
+        Self {
+            success: exit_code == 0,
+            exit_code: Some(exit_code),
+            error: if exit_code == 0 {
+                None
+            } else {
+                Some(format!("Command exited with code {exit_code}"))
+            },
+        }
+    }
+
+    /// Create a failed command response with an error message and optional exit code.
+    pub fn failure(error: impl Into<String>, exit_code: Option<i32>) -> Self {
         Self {
             success: false,
-            exit_code: None,
+            exit_code,
             error: Some(error.into()),
         }
     }
@@ -76,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_command_response_success_serialization() {
-        let response = CommandResponse::success(0);
+        let response = CommandResponse::success();
 
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("\"success\":true"));
@@ -90,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_command_response_failure_serialization() {
-        let response = CommandResponse::failure("command not found");
+        let response = CommandResponse::failure("command not found", None);
 
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("\"success\":false"));
@@ -103,9 +119,19 @@ mod tests {
 
     #[test]
     fn test_command_response_non_zero_exit_code() {
-        let response = CommandResponse::success(1); // Non-zero exit code
+        let response = CommandResponse::with_exit_code(1); // Non-zero exit code
 
         assert!(!response.success); // success field reflects exit code
         assert_eq!(response.exit_code, Some(1));
+        assert!(response.error.is_some()); // error message included
+    }
+
+    #[test]
+    fn test_command_response_failure_with_exit_code() {
+        let response = CommandResponse::failure("process killed", Some(137));
+
+        assert!(!response.success);
+        assert_eq!(response.exit_code, Some(137));
+        assert_eq!(response.error, Some("process killed".to_string()));
     }
 }

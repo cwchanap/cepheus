@@ -351,17 +351,14 @@ async fn execute_command_test(
     *manager.shell_state.pid.lock().await = None;
 
     let exit_code = status.code();
-    let success = status.success();
 
-    Ok(CommandResponse {
-        success,
-        exit_code,
-        error: if success {
-            None
-        } else {
-            Some(format!("Command exited with code {:?}", exit_code))
-        },
-    })
+    match exit_code {
+        Some(code) => Ok(CommandResponse::with_exit_code(code)),
+        None => Ok(CommandResponse::failure(
+            "Process terminated without exit code",
+            None,
+        )),
+    }
 }
 
 // Helper function to cancel running command

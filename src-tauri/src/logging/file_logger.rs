@@ -12,7 +12,7 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
 
     std::fs::create_dir_all(&log_dir)?;
 
-    let file_appender = rolling::never(&log_dir, "terminal.log");
+    let file_appender = rolling::daily(&log_dir, "terminal.log");
 
     tracing_subscriber::registry()
         .with(fmt::layer().with_writer(file_appender))
@@ -23,7 +23,10 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
         )
         .init();
 
-    tracing::info!("Logging initialized to {:?}/terminal.log", log_dir);
+    tracing::info!(
+        "Logging initialized to {:?}/terminal.log (daily rotation)",
+        log_dir
+    );
 
     Ok(())
 }

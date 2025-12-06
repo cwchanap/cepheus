@@ -35,22 +35,29 @@ impl HistoryBuffer {
     /// Add line to buffer; evict oldest if at capacity
     pub fn push(&self, line: OutputLine) {
         let mut lines = self.lines.write().unwrap();
+        let mut warning_shown = self.truncation_warning_shown.write().unwrap();
 
-        if lines.len() >= self.max_capacity {
-            lines.pop_front(); // Remove oldest line
+        // Compute how many items we will add: 1 for the new line, +1 if warning will be inserted
+        let need_warning = lines.len() >= self.max_capacity && !*warning_shown;
+        let will_add: usize = 1 + if need_warning { 1 } else { 0 };
 
-            // Show truncation warning once
-            let mut warning_shown = self.truncation_warning_shown.write().unwrap();
-            if !*warning_shown {
-                let warning = OutputLine::Notification {
-                    message: "Output truncated: line limit (10,000) exceeded".to_string(),
-                    level: NotificationLevel::Warning,
-                    timestamp: current_timestamp_ms(),
-                };
-                // Insert warning before the new line
-                lines.push_back(warning);
-                *warning_shown = true;
-            }
+        // Pop enough items so that lines.len() + will_add <= max_capacity
+        while lines.len() + will_add > self.max_capacity {
+            lines.pop_front();
+        }
+
+        // Insert truncation warning (once) before the new line
+        if need_warning {
+            let warning = OutputLine::Notification {
+                message: format!(
+                    "Output truncated: line limit ({}) exceeded",
+                    self.max_capacity
+                ),
+                level: NotificationLevel::Warning,
+                timestamp: current_timestamp_ms(),
+            };
+            lines.push_back(warning);
+            *warning_shown = true;
         }
 
         lines.push_back(line);
@@ -153,32 +160,21 @@ mod tests {
 
         assert_eq!(buffer.len(), 3);
 
-        // Add 4th line - should evict oldest and add warning
+        // Add 4th line - should evict oldest, add warning, and stay within capacity
         buffer.push(OutputLine::Stdout {
             text: "line3".to_string(),
             timestamp: 3000,
         });
 
-        // Buffer should have: line1, warning, line3 (line0 evicted, line2 evicted for warning)
-        // Actually: line0 is evicted, warning is added, then line3 is added
-        // So: line1, line2, warning, line3 - but that's 4 items...
-        // Let me re-check the logic: we evict, then check warning, then push
-        // So after capacity: we evict line0, add warning (now at 3), then push line3 (now at 4)
-        // Wait, the warning is added and THEN line3 is pushed, so we need another eviction
-
-        // The current implementation adds warning and then line3, potentially exceeding capacity
-        // Let me verify actual behavior
-        let _lines = buffer.get_all();
-
-        // After adding 4th line to capacity-3 buffer:
-        // 1. Buffer has [line0, line1, line2] at capacity
-        // 2. Push line3: evict line0, add warning, push line3
-        // 3. Final: [line1, line2, warning, line3] = 4 items
-        // This exceeds capacity - the implementation needs adjustment
-
-        // For now, let's test the current behavior
-        assert!(buffer.len() >= 3);
+        // Buffer should be at capacity with warning included
+        let lines = buffer.get_all();
+        assert!(buffer.len() <= 3);
         assert!(buffer.has_truncation_warning());
+
+        // Verify warning is in the buffer
+        assert!(lines
+            .iter()
+            .any(|l| matches!(l, OutputLine::Notification { .. })));
     }
 
     #[test]
@@ -324,7 +320,7 @@ mod property_tests {
     // T008: Property-based test for HistoryBuffer wraparound using proptest
     proptest! {
         #[test]
-        fn test_buffer_never_exceeds_capacity_plus_warning(
+        fn test_buffer_never_exceeds_capacity(
             capacity in 10usize..100,
             num_items in 0usize..500
         ) {
@@ -337,8 +333,8 @@ mod property_tests {
                 });
             }
 
-            // Buffer should never exceed capacity by more than 1 (for warning)
-            prop_assert!(buffer.len() <= capacity + 1);
+            // Buffer should never exceed capacity
+            prop_assert!(buffer.len() <= capacity);
         }
 
         #[test]

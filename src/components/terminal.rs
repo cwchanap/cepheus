@@ -41,6 +41,20 @@ pub fn Terminal() -> impl IntoView {
     view! {
         <div class="terminal-container">
             <NotificationBar />
+            {move || {
+                if state.listener_failed.get() {
+                    view! {
+                        <div class="terminal-error-banner">
+                            <span class="error-icon">"⚠️"</span>
+                            <span class="error-message">
+                                {move || state.listener_error.get().unwrap_or_else(|| "Terminal connection failed".to_string())}
+                            </span>
+                        </div>
+                    }.into_any()
+                } else {
+                    ().into_any()
+                }
+            }}
             <OutputDisplay />
             <div class="input-row">
                 <PromptIndicator />
@@ -66,6 +80,7 @@ fn setup_event_listeners(state: TerminalState) {
         }
     });
 
+    let state_output = state;
     spawn_local(async move {
         match listen("output-line", &output_handler).await {
             Ok(_) => {
@@ -73,9 +88,11 @@ fn setup_event_listeners(state: TerminalState) {
                 output_handler.forget();
             }
             Err(e) => {
-                web_sys::console::error_1(
-                    &format!("Failed to listen for output-line: {e:?}").into(),
-                );
+                let error_msg =
+                    format!("Terminal connection failed: output-line listener error: {e:?}");
+                web_sys::console::error_1(&error_msg.clone().into());
+                state_output.set_listener_failed(error_msg.clone());
+                state_output.show_notification(format!("Terminal is non-functional: {error_msg}"));
             }
         }
     });
@@ -104,9 +121,11 @@ fn setup_event_listeners(state: TerminalState) {
                 notify_handler.forget();
             }
             Err(e) => {
-                web_sys::console::error_1(
-                    &format!("Failed to listen for shell-notification: {e:?}").into(),
-                );
+                let error_msg =
+                    format!("Terminal connection failed: shell-notification listener error: {e:?}");
+                web_sys::console::error_1(&error_msg.clone().into());
+                state_notify.set_listener_failed(error_msg.clone());
+                state_notify.show_notification(format!("Terminal is non-functional: {error_msg}"));
             }
         }
     });

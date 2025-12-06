@@ -144,9 +144,35 @@ pub async fn execute_command(
         Ok(s) => s,
         Err(e) => {
             tracing::error!("Failed to wait for process: {}", e);
+
+            // Attempt to terminate the child process explicitly
+            // First try async kill
+            match child.kill().await {
+                Ok(()) => {
+                    tracing::info!("Successfully killed child process after wait failure");
+                }
+                Err(kill_err) => {
+                    tracing::warn!("child.kill().await failed: {}", kill_err);
+                    // Fallback: try start_kill (initiates kill without waiting)
+                    if let Err(start_kill_err) = child.start_kill() {
+                        tracing::warn!(
+                            "child.start_kill() fallback also failed: {}",
+                            start_kill_err
+                        );
+                        // Best effort: nothing more we can do, proceed with cleanup
+                    } else {
+                        tracing::info!("start_kill() succeeded as fallback");
+                    }
+                }
+            }
+
             // Wait for output readers to complete
-            let _ = stdout_handle.await;
-            let _ = stderr_handle.await;
+            if let Err(join_err) = stdout_handle.await {
+                tracing::warn!("stdout reader task join failed: {}", join_err);
+            }
+            if let Err(join_err) = stderr_handle.await {
+                tracing::warn!("stderr reader task join failed: {}", join_err);
+            }
 
             state.shell_state.set_busy(false).await;
             *state.shell_state.pid.lock().await = None;
@@ -172,15 +198,13 @@ pub async fn execute_command(
         success
     );
 
-    Ok(CommandResponse {
-        success,
-        exit_code,
-        error: if success {
-            None
-        } else {
-            Some(format!("Command exited with code {exit_code:?}"))
-        },
-    })
+    match exit_code {
+        Some(code) => Ok(CommandResponse::with_exit_code(code)),
+        None => Ok(CommandResponse::failure(
+            "Process terminated without exit code",
+            None,
+        )),
+    }
 }
 
 /// Send SIGINT to the currently running command (Ctrl+C).
