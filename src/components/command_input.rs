@@ -77,14 +77,26 @@ pub fn CommandInput() -> impl IntoView {
             prop:value=move || state.current_input.get()
             on:input=on_input
             on:keydown=on_keydown
-            prop:disabled=move || state.is_busy.get()
-            placeholder="Enter command..."
+            prop:disabled=move || state.is_input_disabled()
+            placeholder=move || {
+                if state.listener_failed.get() {
+                    "Terminal unavailable - connection failed"
+                } else {
+                    "Enter command..."
+                }
+            }
         />
     }
 }
 
 /// Submit the current command for execution
 fn submit_command(state: TerminalState) {
+    // Don't submit if listener failed (terminal non-functional)
+    if state.listener_failed.get() {
+        state.show_notification("Cannot execute: terminal connection failed".to_string());
+        return;
+    }
+
     let cmd = state.current_input.get();
 
     // Don't submit empty commands
@@ -151,6 +163,11 @@ fn submit_command(state: TerminalState) {
 
 /// Cancel the currently running command
 fn cancel_command(state: TerminalState) {
+    // Can't cancel if terminal is non-functional
+    if state.listener_failed.get() {
+        return;
+    }
+
     // Only cancel if a command is running
     if !state.is_busy.get() {
         return;

@@ -52,6 +52,19 @@ impl ShellState {
         *self.pid.lock().await
     }
 
+    /// Atomically get the PID only if shell is busy.
+    /// Acquires both locks to avoid TOCTOU race between is_busy and get_pid.
+    pub async fn get_pid_if_busy(&self) -> Option<u32> {
+        // Lock both in consistent order to avoid deadlock
+        let is_busy = self.is_busy.lock().await;
+        let pid = self.pid.lock().await;
+        if *is_busy {
+            *pid
+        } else {
+            None
+        }
+    }
+
     /// Set the current process and its PID
     pub async fn set_process(&self, child: Child) {
         let pid = child.id();
@@ -127,13 +140,10 @@ impl ShellManager {
         self.shell_state.is_busy().await
     }
 
-    /// Get the current process ID (if a command is running)
+    /// Get the current process ID (if a command is running).
+    /// This is atomic - avoids TOCTOU race between busy check and PID retrieval.
     pub async fn get_running_pid(&self) -> Option<u32> {
-        if self.shell_state.is_busy().await {
-            self.shell_state.get_pid().await
-        } else {
-            None
-        }
+        self.shell_state.get_pid_if_busy().await
     }
 }
 
@@ -204,5 +214,34 @@ mod tests {
 
         manager.shell_state.set_busy(true).await;
         assert!(cloned.is_busy().await);
+    }
+
+    #[tokio::test]
+    async fn test_get_pid_if_busy_returns_none_when_not_busy() {
+        let state = ShellState::default();
+        *state.pid.lock().await = Some(1234);
+        // Not busy, so should return None even though PID is set
+        assert!(state.get_pid_if_busy().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_pid_if_busy_returns_pid_when_busy() {
+        let state = ShellState::default();
+        *state.pid.lock().await = Some(5678);
+        state.set_busy(true).await;
+        // Busy, so should return the PID
+        assert_eq!(state.get_pid_if_busy().await, Some(5678));
+    }
+
+    #[tokio::test]
+    async fn test_get_running_pid_atomic() {
+        let manager = ShellManager::new();
+        // Set PID but not busy
+        *manager.shell_state.pid.lock().await = Some(9999);
+        assert!(manager.get_running_pid().await.is_none());
+
+        // Now set busy
+        manager.shell_state.set_busy(true).await;
+        assert_eq!(manager.get_running_pid().await, Some(9999));
     }
 }

@@ -16,6 +16,10 @@ pub struct TerminalState {
     pub is_busy: RwSignal<bool>,
     /// Active notification (if any)
     pub notification: RwSignal<Option<String>>,
+    /// True if event listener registration failed (terminal non-functional)
+    pub listener_failed: RwSignal<bool>,
+    /// Error message when listener failed
+    pub listener_error: RwSignal<Option<String>>,
 }
 
 impl TerminalState {
@@ -27,6 +31,8 @@ impl TerminalState {
             cwd: RwSignal::new(String::from("~")),
             is_busy: RwSignal::new(false),
             notification: RwSignal::new(None),
+            listener_failed: RwSignal::new(false),
+            listener_error: RwSignal::new(None),
         }
     }
 
@@ -53,6 +59,17 @@ impl TerminalState {
     /// Clear the current notification
     pub fn clear_notification(&self) {
         self.notification.set(None);
+    }
+
+    /// Mark listener as failed with an error message
+    pub fn set_listener_failed(&self, error: impl Into<String>) {
+        self.listener_failed.set(true);
+        self.listener_error.set(Some(error.into()));
+    }
+
+    /// Check if input should be disabled (busy or listener failed)
+    pub fn is_input_disabled(&self) -> bool {
+        self.is_busy.get() || self.listener_failed.get()
     }
 }
 

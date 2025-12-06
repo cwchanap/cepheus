@@ -24,10 +24,11 @@ pub fn run() {
 
     // Initialize shell manager state
     let shell_manager = ShellManager::new();
-    tracing::info!(
-        "Shell manager initialized with cwd: {:?}",
-        std::env::current_dir()
-    );
+    let cwd_display = match std::env::current_dir() {
+        Ok(path) => path.display().to_string(),
+        Err(e) => format!("Error retrieving cwd: {}", e),
+    };
+    tracing::info!("Shell manager initialized with cwd: {}", cwd_display);
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
