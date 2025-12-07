@@ -47,6 +47,19 @@ impl ShellState {
         *self.is_busy.lock().await = busy;
     }
 
+    /// Atomically try to set busy state from false to true.
+    /// Returns true if successfully transitioned from false to true,
+    /// false if already busy.
+    pub async fn try_set_busy(&self) -> bool {
+        let mut is_busy = self.is_busy.lock().await;
+        if !*is_busy {
+            *is_busy = true;
+            true
+        } else {
+            false
+        }
+    }
+
     /// Get the current process ID (if any)
     pub async fn get_pid(&self) -> Option<u32> {
         *self.pid.lock().await
@@ -138,6 +151,13 @@ impl ShellManager {
     /// Check if shell is currently busy
     pub async fn is_busy(&self) -> bool {
         self.shell_state.is_busy().await
+    }
+
+    /// Atomically try to set busy state from false to true.
+    /// Returns true if successfully transitioned from false to true,
+    /// false if already busy.
+    pub async fn try_set_busy(&self) -> bool {
+        self.shell_state.try_set_busy().await
     }
 
     /// Get the current process ID (if a command is running).
@@ -243,5 +263,45 @@ mod tests {
         // Now set busy
         manager.shell_state.set_busy(true).await;
         assert_eq!(manager.get_running_pid().await, Some(9999));
+    }
+
+    #[tokio::test]
+    async fn test_try_set_busy_returns_true_when_not_busy() {
+        let state = ShellState::default();
+        assert!(!state.is_busy().await);
+
+        let result = state.try_set_busy().await;
+        assert!(result);
+        assert!(state.is_busy().await);
+    }
+
+    #[tokio::test]
+    async fn test_try_set_busy_returns_false_when_already_busy() {
+        let state = ShellState::default();
+        state.set_busy(true).await;
+        assert!(state.is_busy().await);
+
+        let result = state.try_set_busy().await;
+        assert!(!result);
+        assert!(state.is_busy().await);
+    }
+
+    #[tokio::test]
+    async fn test_try_set_busy_manager_delegates_correctly() {
+        let manager = ShellManager::new();
+        assert!(!manager.is_busy().await);
+
+        let result = manager.try_set_busy().await;
+        assert!(result);
+        assert!(manager.is_busy().await);
+
+        // Try again when already busy
+        let result2 = manager.try_set_busy().await;
+        assert!(!result2);
+        assert!(manager.is_busy().await);
+
+        // Clean up
+        manager.shell_state.set_busy(false).await;
+        assert!(!manager.is_busy().await);
     }
 }
