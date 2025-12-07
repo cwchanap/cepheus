@@ -32,14 +32,11 @@ pub async fn execute_command(
         return Err("Command cannot be empty".to_string());
     }
 
-    // Check if already busy
-    if state.is_busy().await {
+    // Try to set busy state atomically
+    if !state.shell_state.try_set_busy().await {
         tracing::warn!("Attempted to execute command while busy");
         return Err("Command already running".to_string());
     }
-
-    // Set busy state
-    state.shell_state.set_busy(true).await;
 
     // Add command to history
     let cmd_line = OutputLine::Command {

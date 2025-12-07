@@ -193,5 +193,8 @@ fn cancel_command(state: TerminalState) {
                 state.show_notification(format!("Cancel failed: {error_msg}"));
             }
         }
+
+        // Always clear busy state regardless of success or failure
+        state.is_busy.set(false);
     });
 }

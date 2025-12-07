@@ -150,9 +150,6 @@ async fn test_shell_crash_detection() {
     .await
     .expect("Command timed out");
 
-    // The command should complete (not hang)
-    assert!(result.is_ok() || result.is_err());
-
     // After command completes, manager should not be busy
     assert!(
         !manager.is_busy().await,
@@ -264,13 +261,10 @@ async fn execute_command_test(
     use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::process::Command;
 
-    // Check if already busy
-    if manager.is_busy().await {
+    // Try to set busy state atomically
+    if !manager.shell_state.try_set_busy().await {
         return Err("Command already running".to_string());
     }
-
-    // Set busy
-    manager.shell_state.set_busy(true).await;
 
     // Add command to history
     manager.history_buffer.push(OutputLine::Command {
@@ -343,8 +337,8 @@ async fn execute_command_test(
         .map_err(|e| format!("Wait error: {}", e))?;
 
     // Wait for output readers to complete
-    let _ = stdout_handle.await;
-    let _ = stderr_handle.await;
+    stdout_handle.await.expect("stdout reader task panicked");
+    stderr_handle.await.expect("stderr reader task panicked");
 
     // Clear busy state
     manager.shell_state.set_busy(false).await;
