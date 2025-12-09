@@ -26,16 +26,24 @@ struct TauriEvent {
 pub fn Terminal() -> impl IntoView {
     let state = use_context::<TerminalState>().expect("TerminalState context missing");
 
-    // Set up Tauri event listeners on mount
+    // Set up Tauri event listeners on mount - run only once per component instance
+    let listeners_setup = std::cell::Cell::new(false);
     Effect::new(move |_| {
-        setup_event_listeners(state);
+        if !listeners_setup.get() {
+            listeners_setup.set(true);
+            setup_event_listeners(state);
+        }
     });
 
-    // Fetch initial history on mount
+    // Fetch initial history on mount - run only once per component instance
+    let fetch_setup = std::cell::Cell::new(false);
     Effect::new(move |_| {
-        spawn_local(async move {
-            fetch_initial_state(state).await;
-        });
+        if !fetch_setup.get() {
+            fetch_setup.set(true);
+            spawn_local(async move {
+                fetch_initial_state(state).await;
+            });
+        }
     });
 
     view! {

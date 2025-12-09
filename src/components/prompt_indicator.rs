@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use std::path::Path;
 
 use crate::models::TerminalState;
 
@@ -26,19 +27,27 @@ fn format_cwd(cwd: &str) -> String {
         return cwd.to_string();
     };
 
-    // Replace home directory with ~
-    if let Some(stripped) = cwd.strip_prefix(&home) {
-        if stripped.is_empty() {
+    // Replace home directory with ~ using Path-based comparison
+    let cwd_path = Path::new(cwd);
+    let home_path = Path::new(&home);
+
+    if let Ok(stripped) = cwd_path.strip_prefix(home_path) {
+        if stripped.as_os_str().is_empty() {
             return "~".to_string();
         }
-        return format!("~{stripped}");
+        return format!("~/{}", stripped.display());
     }
 
     // Truncate very long paths
     if cwd.len() > 50 {
-        let parts: Vec<&str> = cwd.split('/').collect();
-        if parts.len() > 3 {
-            return format!(".../{}/{}", parts[parts.len() - 2], parts[parts.len() - 1]);
+        let path = Path::new(cwd);
+        let components: Vec<_> = path.components().collect();
+
+        if components.len() >= 3 {
+            // Get the last two components for display
+            let second_last = components[components.len() - 2].as_os_str();
+            let last = components[components.len() - 1].as_os_str();
+            return format!(".../{}/{}", second_last.display(), last.display());
         }
     }
 
@@ -58,6 +67,6 @@ fn home_dir() -> Option<String> {
         }
     }
 
-    // Default to common macOS home path pattern
+    // No default path — return None (no macOS home path fallback)
     None
 }

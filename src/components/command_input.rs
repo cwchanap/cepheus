@@ -119,25 +119,50 @@ fn submit_command(state: TerminalState) {
 
     // Spawn async task to call IPC
     spawn_local(async move {
-        let args = serde_wasm_bindgen::to_value(&ExecuteCommandArgs {
+        let args = match serde_wasm_bindgen::to_value(&ExecuteCommandArgs {
             command: cmd.clone(),
             cwd: None,
-        })
-        .unwrap();
+        }) {
+            Ok(args) => args,
+            Err(e) => {
+                web_sys::console::error_1(&format!("Failed to serialize command args: {e}").into());
+                let err_line = OutputLine::Stderr {
+                    text: "Failed to serialize command arguments".to_string(),
+                    timestamp: current_timestamp_ms(),
+                };
+                state.push_history(err_line);
+                state.is_busy.set(false);
+                return;
+            }
+        };
 
         match invoke("execute_command", args).await {
             Ok(result) => {
-                // Check if response indicates an error
-                if let Some(error_str) = result.as_string() {
-                    if error_str.starts_with("Error") {
+                // Deserialize the structured response
+                match serde_wasm_bindgen::from_value::<CommandResponse>(result) {
+                    Ok(response) => {
+                        // Use structured fields to detect failure
+                        if let Some(error_msg) = response.error {
+                            let err_line = OutputLine::Stderr {
+                                text: error_msg,
+                                timestamp: current_timestamp_ms(),
+                            };
+                            state.push_history(err_line);
+                        }
+                        // If no error, command completed successfully (output was streamed via events)
+                    }
+                    Err(e) => {
+                        // Failed to deserialize response
+                        web_sys::console::error_1(
+                            &format!("Failed to parse command response: {e}").into(),
+                        );
                         let err_line = OutputLine::Stderr {
-                            text: error_str,
+                            text: "Failed to parse command response".to_string(),
                             timestamp: current_timestamp_ms(),
                         };
                         state.push_history(err_line);
                     }
                 }
-                // Otherwise, command completed (output was streamed via events)
             }
             Err(e) => {
                 // IPC failure
