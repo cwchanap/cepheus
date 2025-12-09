@@ -58,11 +58,13 @@ impl OutputLine {
     /// Combines timestamp with text content to ensure uniqueness even when
     /// multiple lines share the same timestamp (millisecond resolution)
     pub fn unique_key(&self) -> String {
+        let timestamp = self.timestamp();
+
         match self {
-            Self::Command { text, timestamp } => format!("cmd_{}_{}", timestamp, text),
-            Self::Stdout { text, timestamp } => format!("out_{}_{}", timestamp, text),
-            Self::Stderr { text, timestamp } => format!("err_{}_{}", timestamp, text),
-            Self::Notification { message, timestamp, .. } => format!("not_{}_{}", timestamp, message),
+            Self::Command { text, .. } => format!("cmd_{timestamp}_{text}"),
+            Self::Stdout { text, .. } => format!("out_{timestamp}_{text}"),
+            Self::Stderr { text, .. } => format!("err_{timestamp}_{text}"),
+            Self::Notification { message, .. } => format!("not_{timestamp}_{message}"),
         }
     }
 }
