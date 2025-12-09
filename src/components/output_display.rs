@@ -39,7 +39,7 @@ pub fn OutputDisplay() -> impl IntoView {
         <div class="output-display" id="output-container">
             <For
                 each=move || state.history.get()
-                key=|line| line.timestamp()
+                key=|line| line.unique_key()
                 children=move |line| view! { <OutputLineView line=line /> }
             />
         </div>

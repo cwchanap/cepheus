@@ -53,6 +53,18 @@ impl OutputLine {
             Self::Notification { .. } => "line-notification",
         }
     }
+
+    /// Generate a stable unique key for this output line
+    /// Combines timestamp with text content to ensure uniqueness even when
+    /// multiple lines share the same timestamp (millisecond resolution)
+    pub fn unique_key(&self) -> String {
+        match self {
+            Self::Command { text, timestamp } => format!("cmd_{}_{}", timestamp, text),
+            Self::Stdout { text, timestamp } => format!("out_{}_{}", timestamp, text),
+            Self::Stderr { text, timestamp } => format!("err_{}_{}", timestamp, text),
+            Self::Notification { message, timestamp, .. } => format!("not_{}_{}", timestamp, message),
+        }
+    }
 }
 
 /// Notification severity level
