@@ -104,14 +104,7 @@ fn submit_command(state: TerminalState) {
         return;
     }
 
-    // Add command to history immediately (optimistic update)
-    let cmd_line = OutputLine::Command {
-        text: cmd.clone(),
-        timestamp: current_timestamp_ms(),
-    };
-    state.push_history(cmd_line);
-
-    // Clear input
+    // Clear input immediately
     state.clear_input();
 
     // Set busy state
