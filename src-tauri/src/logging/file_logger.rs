@@ -21,7 +21,7 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
                 .add_directive("cepheus=debug".parse()?)
                 .add_directive("cepheus_lib=debug".parse()?),
         )
-        .init();
+        .try_init()?;
 
     tracing::info!(
         "Logging initialized to {:?}/terminal.log (daily rotation)",

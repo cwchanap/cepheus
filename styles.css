@@ -16,6 +16,7 @@
   --notification-bg: #3c3c00;
   --scrollbar-thumb-hover: #555;
   --placeholder-color: #666;
+  --notification-height: 17px; /* 8px top + 8px bottom padding + 1px border */
 
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
   font-size: 14px;
@@ -50,9 +51,10 @@ html, body {
 .terminal-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100% - var(--notification-height));
   padding: 8px;
   box-sizing: border-box;
+  margin-top: var(--notification-height);
 }
 
 /* Notification bar */
