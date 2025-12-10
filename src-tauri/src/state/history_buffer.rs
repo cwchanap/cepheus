@@ -33,7 +33,7 @@ impl HistoryBuffer {
     }
 
     /// Add line to buffer; evict oldest if at capacity
-    pub fn push(&self, line: OutputLine) {
+    pub fn push(&self, line: OutputLine) -> Option<OutputLine> {
         let mut lines = self.lines.write().unwrap();
         let mut warning_shown = self.truncation_warning_shown.write().unwrap();
 
@@ -46,6 +46,8 @@ impl HistoryBuffer {
             lines.pop_front();
         }
 
+        let mut warning_line = None;
+
         // Insert truncation warning (once) before the new line
         if need_warning {
             let warning = OutputLine::Notification {
@@ -56,11 +58,13 @@ impl HistoryBuffer {
                 level: NotificationLevel::Warning,
                 timestamp: current_timestamp_ms(),
             };
-            lines.push_back(warning);
+            lines.push_back(warning.clone());
             *warning_shown = true;
+            warning_line = Some(warning);
         }
 
         lines.push_back(line);
+        warning_line
     }
 
     /// Get all lines for rendering (cloned)

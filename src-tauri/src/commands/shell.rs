@@ -43,7 +43,11 @@ pub async fn execute_command(
         text: command.clone(),
         timestamp: current_timestamp_ms(),
     };
-    state.history_buffer.push(cmd_line.clone());
+    if let Some(warning) = state.history_buffer.push(cmd_line.clone()) {
+        if let Err(e) = app.emit("output-line", &warning) {
+            tracing::error!("Failed to emit warning event: {}", e);
+        }
+    }
 
     // Emit command line event
     if let Err(e) = app.emit("output-line", &cmd_line) {
@@ -106,7 +110,11 @@ pub async fn execute_command(
                 text: line,
                 timestamp: current_timestamp_ms(),
             };
-            state_stdout.history_buffer.push(output_line.clone());
+            if let Some(warning) = state_stdout.history_buffer.push(output_line.clone()) {
+                if let Err(e) = app_stdout.emit("output-line", &warning) {
+                    tracing::error!("Failed to emit warning event: {}", e);
+                }
+            }
 
             if let Err(e) = app_stdout.emit("output-line", &output_line) {
                 tracing::error!("Failed to emit stdout event: {}", e);
@@ -128,7 +136,11 @@ pub async fn execute_command(
                 text: line,
                 timestamp: current_timestamp_ms(),
             };
-            state_stderr.history_buffer.push(output_line.clone());
+            if let Some(warning) = state_stderr.history_buffer.push(output_line.clone()) {
+                if let Err(e) = app_stderr.emit("output-line", &warning) {
+                    tracing::error!("Failed to emit warning event: {}", e);
+                }
+            }
 
             if let Err(e) = app_stderr.emit("output-line", &output_line) {
                 tracing::error!("Failed to emit stderr event: {}", e);
