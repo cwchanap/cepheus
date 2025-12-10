@@ -1,5 +1,5 @@
-use leptos::prelude::*;
 use leptos::html::Div;
+use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -51,8 +51,8 @@ pub fn OutputDisplay() -> impl IntoView {
     };
 
     view! {
-        <div 
-            class="output-display" 
+        <div
+            class="output-display"
             id="output-container"
             node_ref=container_ref
             on:scroll=on_scroll
