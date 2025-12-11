@@ -47,10 +47,17 @@ impl CommandResponse {
     }
 
     /// Create a failed command response with an error message and optional exit code.
+    ///
+    /// A zero exit code will be treated as unspecified (normalized to None) since failures
+    /// should not have successful exit codes.
     pub fn failure(error: impl Into<String>, exit_code: Option<i32>) -> Self {
         Self {
             success: false,
-            exit_code,
+            exit_code: if exit_code == Some(0) {
+                None
+            } else {
+                exit_code
+            },
             error: Some(error.into()),
         }
     }
@@ -133,5 +140,18 @@ mod tests {
         assert!(!response.success);
         assert_eq!(response.exit_code, Some(137));
         assert_eq!(response.error, Some("process killed".to_string()));
+    }
+
+    #[test]
+    fn test_command_response_failure_with_zero_exit_code() {
+        // Zero exit code should be normalized to None for failures
+        let response = CommandResponse::failure("process succeeded but marked as failure", Some(0));
+
+        assert!(!response.success);
+        assert_eq!(response.exit_code, None); // Should be normalized to None
+        assert_eq!(
+            response.error,
+            Some("process succeeded but marked as failure".to_string())
+        );
     }
 }

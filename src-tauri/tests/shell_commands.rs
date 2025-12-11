@@ -132,12 +132,8 @@ async fn test_cancel_command() {
         .expect("Cancelled command should complete quickly")
         .expect("Task should not panic");
 
-    // The command may succeed or fail depending on timing; we only assert it completed
-    // The important thing is that it completed (didn't hang for 30 seconds)
-    assert!(
-        result.is_ok() || result.is_err(),
-        "Command execution should complete"
-    );
+    // The command may succeed or fail depending on timing; the timeout ensures it completed quickly
+    // (didn't hang for 30 seconds), so no additional assertion is needed
 }
 
 // T019: Integration test for shell crash detection

@@ -135,10 +135,26 @@ impl ShellManager {
         }
     }
 
+    /// Create a new shell manager with an explicit initial working directory
+    pub fn new_with_cwd(initial_cwd: String) -> Self {
+        Self {
+            shell_state: ShellState::new(initial_cwd),
+            history_buffer: HistoryBuffer::default(),
+        }
+    }
+
     /// Create a new shell manager with custom capacity
     pub fn with_capacity(buffer_capacity: usize) -> Self {
         Self {
             shell_state: ShellState::default(),
+            history_buffer: HistoryBuffer::new(buffer_capacity),
+        }
+    }
+
+    /// Create a new shell manager with custom capacity and explicit CWD
+    pub fn with_capacity_and_cwd(buffer_capacity: usize, initial_cwd: String) -> Self {
+        Self {
+            shell_state: ShellState::new(initial_cwd),
             history_buffer: HistoryBuffer::new(buffer_capacity),
         }
     }

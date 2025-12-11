@@ -45,9 +45,13 @@ fn format_cwd(cwd: &str) -> String {
 
         if components.len() >= 3 {
             // Get the last two components for display
-            let second_last = components[components.len() - 2].as_os_str();
-            let last = components[components.len() - 1].as_os_str();
-            return format!(".../{}/{}", second_last.display(), last.display());
+            let second_last = components[components.len() - 2]
+                .as_os_str()
+                .to_string_lossy();
+            let last = components[components.len() - 1]
+                .as_os_str()
+                .to_string_lossy();
+            return format!(".../{second_last}/{last}");
         }
     }
 

@@ -23,11 +23,19 @@ pub fn run() {
     tracing::info!("Starting Cepheus terminal application");
 
     // Initialize shell manager state
-    let shell_manager = ShellManager::new();
-    let cwd_display = match std::env::current_dir() {
-        Ok(path) => path.display().to_string(),
-        Err(e) => format!("Error retrieving cwd: {}", e),
+    // Get CWD once before creating ShellManager to ensure logged value matches actual initialization
+    let current_dir = match std::env::current_dir() {
+        Ok(path) => path,
+        Err(e) => {
+            tracing::warn!("Failed to get current directory: {}", e);
+            std::path::PathBuf::from("/") // fallback to root if current_dir fails
+        }
     };
+
+    let cwd_display = current_dir.display().to_string();
+    let initial_cwd = current_dir.to_string_lossy().to_string();
+
+    let shell_manager = ShellManager::new_with_cwd(initial_cwd);
     tracing::info!("Shell manager initialized with cwd: {}", cwd_display);
 
     tauri::Builder::default()
