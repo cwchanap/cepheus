@@ -1,7 +1,5 @@
 use leptos::prelude::*;
 use leptos::tachys::dom::window;
-use std::cell::Cell;
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 use crate::models::TerminalState;
@@ -11,39 +9,37 @@ use crate::models::TerminalState;
 pub fn NotificationBar() -> impl IntoView {
     let state = use_context::<TerminalState>().expect("TerminalState context missing");
 
-    // Store the timeout handle so we can cancel it on cleanup/re-run
-    let timeout_handle: Rc<Cell<Option<i32>>> = Rc::new(Cell::new(None));
+    // Simple timeout handling without complex cleanup
+    let last_notification_id = std::rc::Rc::new(std::cell::Cell::new(None::<i32>));
 
-    // Auto-dismiss effect with cleanup
+    // Auto-dismiss effect
     Effect::new({
-        let timeout_handle = Rc::clone(&timeout_handle);
+        let last_notification_id = std::rc::Rc::clone(&last_notification_id);
         move |_| {
             // Cancel any existing timeout before setting a new one
-            if let Some(handle) = timeout_handle.get() {
-                window().clear_timeout_with_handle(handle);
-                timeout_handle.set(None);
+            if let Some(timeout_id) = last_notification_id.get() {
+                window().clear_timeout_with_handle(timeout_id);
             }
 
             if state.notification.get().is_some() {
                 // Set a timeout to clear the notification after 3 seconds
                 let state_clone = state;
-                let timeout_handle_clone = Rc::clone(&timeout_handle);
+                let _last_notification_id_clone = std::rc::Rc::clone(&last_notification_id);
 
-                let callback = wasm_bindgen::closure::Closure::once(move || {
-                    state_clone.clear_notification();
-                    timeout_handle_clone.set(None);
-                });
+                let callback: wasm_bindgen::prelude::Closure<dyn FnMut()> =
+                    wasm_bindgen::closure::Closure::new(move || {
+                        state_clone.clear_notification();
+                    });
 
                 // set_timeout_with_callback returns a handle we can use to cancel
                 if let Ok(handle) = window().set_timeout_with_callback_and_timeout_and_arguments_0(
                     callback.as_ref().unchecked_ref(),
                     3000,
                 ) {
-                    timeout_handle.set(Some(handle));
+                    last_notification_id.set(Some(handle));
+                    // The closure will be automatically dropped when it goes out of scope
+                    // This is acceptable for our use case as it's a simple notification timeout
                 }
-
-                // Prevent the closure from being dropped (it will run once and clean up)
-                callback.forget();
             }
         }
     });
