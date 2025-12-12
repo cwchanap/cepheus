@@ -37,8 +37,8 @@ pub fn NotificationBar() -> impl IntoView {
                     3000,
                 ) {
                     last_notification_id.set(Some(handle));
-                    // The closure will be automatically dropped when it goes out of scope
-                    // This is acceptable for our use case as it's a simple notification timeout
+                    // Keep the closure alive for the timeout duration
+                    callback.forget();
                 }
             }
         }
