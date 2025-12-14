@@ -6,10 +6,13 @@ use crate::models::{NotificationLevel, OutputLine};
 
 /// Get current timestamp in milliseconds since Unix epoch
 pub fn current_timestamp_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
+    u64::try_from(
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis(),
+    )
+    .unwrap_or(u64::MAX)
 }
 
 /// Manages the circular buffer of terminal output (max 10,000 lines).
@@ -39,17 +42,15 @@ impl HistoryBuffer {
 
         // Compute how many items we will add: 1 for the new line, +1 if warning will be inserted
         let need_warning = lines.len() >= self.max_capacity && !*warning_shown;
-        let will_add: usize = 1 + if need_warning { 1 } else { 0 };
+        let will_add: usize = 1 + usize::from(need_warning);
 
         // Pop enough items so that lines.len() + will_add <= max_capacity
         while lines.len() + will_add > self.max_capacity {
             lines.pop_front();
         }
 
-        let mut warning_line = None;
-
         // Insert truncation warning (once) before the new line
-        if need_warning {
+        let warning_line = if need_warning {
             let warning = OutputLine::Notification {
                 message: format!(
                     "Output truncated: line limit ({}) exceeded",
@@ -60,9 +61,12 @@ impl HistoryBuffer {
             };
             lines.push_back(warning.clone());
             *warning_shown = true;
-            warning_line = Some(warning);
-        }
+            Some(warning)
+        } else {
+            None
+        };
 
+        drop(warning_shown);
         lines.push_back(line);
         warning_line
     }

@@ -28,7 +28,19 @@ pub fn run() {
         Ok(path) => path,
         Err(e) => {
             tracing::warn!("Failed to get current directory: {}", e);
-            std::path::PathBuf::from("/") // fallback to root if current_dir fails
+
+            // Platform-aware fallback for when current_dir fails
+            if cfg!(windows) {
+                // Windows: try USERPROFILE first, then derive drive root
+                std::env::var("USERPROFILE").map_or_else(
+                    |_| std::path::PathBuf::from("C:\\"),
+                    std::path::PathBuf::from,
+                )
+            } else {
+                // Unix-like systems: try HOME first, then fallback to root
+                std::env::var("HOME")
+                    .map_or_else(|_| std::path::PathBuf::from("/"), std::path::PathBuf::from)
+            }
         }
     };
 

@@ -7,6 +7,22 @@ use tokio::process::Command;
 use crate::models::{CommandResponse, NotificationLevel, OutputLine};
 use crate::state::{current_timestamp_ms, ShellManager};
 
+fn build_shell_command(command: &str) -> Command {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C").arg(command);
+        cmd
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(command);
+        cmd
+    }
+}
+
 /// Execute a shell command and stream output to the terminal.
 ///
 /// # Arguments
@@ -19,6 +35,7 @@ use crate::state::{current_timestamp_ms, ShellManager};
 /// * `Ok(CommandResponse)` - Command execution result
 /// * `Err(String)` - Error message if execution failed
 #[tauri::command]
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
 pub async fn execute_command(
     command: String,
     cwd: Option<String>,
@@ -70,13 +87,14 @@ pub async fn execute_command(
     tracing::debug!("Working directory: {}", working_dir);
 
     // Spawn the process
-    let child_result = Command::new("sh")
-        .arg("-c")
-        .arg(&command)
-        .current_dir(&working_dir)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn();
+    let child_result = {
+        let mut shell_cmd = build_shell_command(&command);
+        shell_cmd
+            .current_dir(&working_dir)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+    };
 
     let mut child = match child_result {
         Ok(c) => c,
@@ -87,14 +105,14 @@ pub async fn execute_command(
         }
     };
 
-    // Store the child process PID
-    let pid = child.id();
-    *state.shell_state.pid.lock().await = pid;
-    tracing::debug!("Process spawned with PID: {:?}", pid);
-
-    // Take stdout and stderr
+    // Take stdout and stderr before storing the child process
     let stdout = child.stdout.take().expect("stdout not captured");
     let stderr = child.stderr.take().expect("stderr not captured");
+
+    // Store the child process (which also stores the PID)
+    state.shell_state.set_process(child).await;
+    let pid = state.shell_state.get_pid().await;
+    tracing::debug!("Process spawned with PID: {:?}", pid);
 
     // Clone state and app for background tasks
     let state_stdout = state.inner().clone();
@@ -149,26 +167,44 @@ pub async fn execute_command(
     });
 
     // Wait for process to complete
-    let status = match child.wait().await {
+    let taken_child = {
+        let mut process_opt = state.shell_state.process.lock().await;
+        process_opt.take()
+    };
+
+    let Some(mut child_for_wait) = taken_child else {
+        tracing::error!("Process not found in state");
+
+        if let Err(join_err) = stdout_handle.await {
+            tracing::warn!("stdout reader task join failed: {}", join_err);
+        }
+        if let Err(join_err) = stderr_handle.await {
+            tracing::warn!("stderr reader task join failed: {}", join_err);
+        }
+
+        state.shell_state.set_busy(false).await;
+        state.shell_state.clear_process().await;
+        return Err("Process not found in state".to_string());
+    };
+
+    let status = match child_for_wait.wait().await {
         Ok(s) => s,
         Err(e) => {
             tracing::error!("Failed to wait for process: {}", e);
 
             // Attempt to terminate the child process explicitly
             // First try async kill
-            match child.kill().await {
+            match child_for_wait.kill().await {
                 Ok(()) => {
                     tracing::info!("Successfully killed child process after wait failure");
                 }
                 Err(kill_err) => {
                     tracing::warn!("child.kill().await failed: {}", kill_err);
-                    // Fallback: try start_kill (initiates kill without waiting)
-                    if let Err(start_kill_err) = child.start_kill() {
+                    if let Err(start_kill_err) = child_for_wait.start_kill() {
                         tracing::warn!(
                             "child.start_kill() fallback also failed: {}",
                             start_kill_err
                         );
-                        // Best effort: nothing more we can do, proceed with cleanup
                     } else {
                         tracing::info!("start_kill() succeeded as fallback");
                     }
@@ -184,7 +220,7 @@ pub async fn execute_command(
             }
 
             state.shell_state.set_busy(false).await;
-            *state.shell_state.pid.lock().await = None;
+            state.shell_state.clear_process().await;
 
             return Err(format!("Failed to wait for process: {e}"));
         }
@@ -194,9 +230,9 @@ pub async fn execute_command(
     let _ = stdout_handle.await;
     let _ = stderr_handle.await;
 
-    // Clear busy state
+    // Clear busy state and process
     state.shell_state.set_busy(false).await;
-    *state.shell_state.pid.lock().await = None;
+    state.shell_state.clear_process().await;
 
     let exit_code = status.code();
     let success = status.success();
@@ -207,36 +243,73 @@ pub async fn execute_command(
         success
     );
 
-    match exit_code {
-        Some(code) => Ok(CommandResponse::with_exit_code(code)),
-        None => Ok(CommandResponse::failure(
-            "Process terminated without exit code",
-            None,
-        )),
-    }
+    exit_code.map_or_else(
+        || {
+            Ok(CommandResponse::failure(
+                "Process terminated without exit code",
+                None,
+            ))
+        },
+        |code| Ok(CommandResponse::with_exit_code(code)),
+    )
 }
 
-/// Send SIGINT to the currently running command (Ctrl+C).
+/// Send interrupt signal to the currently running command (Ctrl+C).
 ///
 /// # Arguments
 /// * `state` - Tauri managed `ShellManager` state
 ///
 /// # Returns
-/// * `Ok(())` - Signal sent successfully
+/// * `Ok(())` - Interrupt signal sent successfully
 /// * `Err(String)` - Error message if no command is running
 #[tauri::command]
 pub async fn cancel_command(state: State<'_, ShellManager>) -> Result<(), String> {
-    use nix::sys::signal::{self, Signal};
-    use nix::unistd::Pid;
-
     tracing::info!("Cancel command requested");
 
-    let pid = state.shell_state.get_pid().await;
+    let pid = state.get_running_pid().await;
 
     if let Some(pid) = pid {
-        tracing::info!("Sending SIGINT to PID: {}", pid);
-        signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)
-            .map_err(|e| format!("Failed to send SIGINT: {e}"))
+        tracing::info!("Sending interrupt signal to PID: {}", pid);
+
+        #[cfg(unix)]
+        {
+            use nix::errno::Errno;
+            use nix::sys::signal::{self, Signal};
+            use nix::unistd::Pid;
+
+            let pid_i32 = i32::try_from(pid)
+                .map_err(|_| "PID out of range for Unix signal delivery".to_string())?;
+
+            match signal::kill(Pid::from_raw(pid_i32), Signal::SIGINT) {
+                Ok(()) | Err(Errno::ESRCH) => Ok(()),
+                Err(e) => Err(format!("Failed to send SIGINT: {e}")),
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            let output = Command::new("taskkill")
+                .arg("/PID")
+                .arg(pid.to_string())
+                .arg("/T")
+                .output()
+                .await
+                .map_err(|e| format!("Failed to spawn taskkill: {e}"))?;
+
+            if output.status.success() {
+                Ok(())
+            } else {
+                Err(format!(
+                    "taskkill failed: {}",
+                    String::from_utf8_lossy(&output.stderr)
+                ))
+            }
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            Ok(())
+        }
     } else {
         tracing::warn!("Cancel requested but no command is running");
         Err("No command currently running".to_string())

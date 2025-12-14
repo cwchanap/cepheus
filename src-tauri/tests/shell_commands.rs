@@ -14,15 +14,36 @@ fn create_test_manager() -> ShellManager {
     ShellManager::with_capacity(100)
 }
 
+fn build_shell_command_test(command: &str) -> tokio::process::Command {
+    #[cfg(windows)]
+    {
+        let mut cmd = tokio::process::Command::new("cmd");
+        cmd.arg("/C").arg(command);
+        cmd
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut cmd = tokio::process::Command::new("sh");
+        cmd.arg("-c").arg(command);
+        cmd
+    }
+}
+
 // T017: Integration test for execute_command with echo
 #[tokio::test]
 async fn test_execute_echo_command() {
     let manager = create_test_manager();
 
     // Execute a simple echo command
+    #[cfg(windows)]
+    let cmd = "echo hello world";
+    #[cfg(not(windows))]
+    let cmd = "echo 'hello world'";
+
     let result = timeout(
         Duration::from_secs(5),
-        execute_command_test(&manager, "echo 'hello world'", None),
+        execute_command_test(&manager, cmd, None),
     )
     .await
     .expect("Command timed out");
@@ -51,9 +72,14 @@ async fn test_execute_echo_command() {
 async fn test_execute_pwd_command() {
     let manager = create_test_manager();
 
+    #[cfg(windows)]
+    let cmd = "cd";
+    #[cfg(not(windows))]
+    let cmd = "pwd";
+
     let result = timeout(
         Duration::from_secs(5),
-        execute_command_test(&manager, "pwd", None),
+        execute_command_test(&manager, cmd, None),
     )
     .await
     .expect("Command timed out");
@@ -72,9 +98,14 @@ async fn test_execute_command_with_stderr() {
     let manager = create_test_manager();
 
     // Command that writes to stderr
+    #[cfg(windows)]
+    let cmd = "echo error message 1>&2";
+    #[cfg(not(windows))]
+    let cmd = "echo 'error message' >&2";
+
     let result = timeout(
         Duration::from_secs(5),
-        execute_command_test(&manager, "echo 'error message' >&2", None),
+        execute_command_test(&manager, cmd, None),
     )
     .await
     .expect("Command timed out");
@@ -93,9 +124,14 @@ async fn test_execute_failing_command() {
     let manager = create_test_manager();
 
     // Command that exits with non-zero status
+    #[cfg(windows)]
+    let cmd = "exit /b 1";
+    #[cfg(not(windows))]
+    let cmd = "exit 1";
+
     let result = timeout(
         Duration::from_secs(5),
-        execute_command_test(&manager, "exit 1", None),
+        execute_command_test(&manager, cmd, None),
     )
     .await
     .expect("Command timed out");
@@ -112,9 +148,13 @@ async fn test_cancel_command() {
     let manager = create_test_manager();
 
     // Start a long-running command
+    #[cfg(windows)]
+    let cmd = "timeout /T 30 /NOBREAK > NUL";
+    #[cfg(not(windows))]
+    let cmd = "sleep 30";
+
     let manager_clone = manager.clone();
-    let handle =
-        tokio::spawn(async move { execute_command_test(&manager_clone, "sleep 30", None).await });
+    let handle = tokio::spawn(async move { execute_command_test(&manager_clone, cmd, None).await });
 
     // Wait a bit for the command to start
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -127,7 +167,7 @@ async fn test_cancel_command() {
     assert!(cancel_result.is_ok(), "Cancel should succeed");
 
     // Wait for the spawned task to complete
-    let result = timeout(Duration::from_secs(2), handle)
+    let _result = timeout(Duration::from_secs(2), handle)
         .await
         .expect("Cancelled command should complete quickly")
         .expect("Task should not panic");
@@ -137,14 +177,15 @@ async fn test_cancel_command() {
 }
 
 // T019: Integration test for shell crash detection
+#[cfg(not(windows))]
 #[tokio::test]
 async fn test_shell_crash_detection() {
     let manager = create_test_manager();
 
     // Command that kills itself (simulates crash)
-    let result = timeout(
+    let _result = timeout(
         Duration::from_secs(5),
-        execute_command_test(&manager, "sh -c 'kill -9 $$'", None),
+        execute_command_test(&manager, "kill -9 $$", None),
     )
     .await
     .expect("Command timed out");
@@ -185,9 +226,14 @@ async fn test_output_truncation() {
 
     // Generate output that exceeds capacity
     // seq 1 100 will generate 100 lines of output
+    #[cfg(windows)]
+    let cmd = "for /L %i in (1,1,100) do @echo %i";
+    #[cfg(not(windows))]
+    let cmd = "seq 1 100";
+
     let result = timeout(
         Duration::from_secs(5),
-        execute_command_test(&manager, "seq 1 100", None),
+        execute_command_test(&manager, cmd, None),
     )
     .await
     .expect("Command timed out");
@@ -258,7 +304,6 @@ async fn execute_command_test(
     use cepheus_lib::state::current_timestamp_ms;
     use std::process::Stdio;
     use tokio::io::{AsyncBufReadExt, BufReader};
-    use tokio::process::Command;
 
     // Try to set busy state atomically
     if !manager.shell_state.try_set_busy().await {
@@ -278,9 +323,7 @@ async fn execute_command_test(
     };
 
     // Spawn the process
-    let child_result = Command::new("sh")
-        .arg("-c")
-        .arg(command)
+    let child_result = build_shell_command_test(command)
         .current_dir(&working_dir)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -373,14 +416,39 @@ async fn execute_command_test(
 
 // Helper function to cancel running command
 async fn cancel_command_test(manager: &ShellManager) -> Result<(), String> {
-    use nix::sys::signal::{self, Signal};
-    use nix::unistd::Pid;
-
     let pid = manager.shell_state.get_pid().await;
 
     match pid {
-        Some(pid) => signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)
-            .map_err(|e| format!("Failed to send SIGINT: {}", e)),
+        Some(pid) => {
+            #[cfg(unix)]
+            {
+                use nix::sys::signal::{self, Signal};
+                use nix::unistd::Pid;
+
+                signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)
+                    .map_err(|e| format!("Failed to send SIGINT: {}", e))
+            }
+
+            #[cfg(windows)]
+            {
+                let output = tokio::process::Command::new("taskkill")
+                    .arg("/PID")
+                    .arg(pid.to_string())
+                    .arg("/T")
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to spawn taskkill: {e}"))?;
+
+                if output.status.success() {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "taskkill failed: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    ))
+                }
+            }
+        }
         None => Err("No command currently running".to_string()),
     }
 }
