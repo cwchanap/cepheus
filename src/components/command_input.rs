@@ -210,6 +210,7 @@ fn cancel_command(state: TerminalState) {
                     &format!("cancel_command IPC failed: {error_msg}").into(),
                 );
                 state.show_notification(format!("Cancel failed: {error_msg}"));
+                state.is_busy.set(false);
             }
         }
     });
