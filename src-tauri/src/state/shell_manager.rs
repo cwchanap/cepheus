@@ -52,11 +52,11 @@ impl ShellState {
     /// false if already busy.
     pub async fn try_set_busy(&self) -> bool {
         let mut is_busy = self.is_busy.lock().await;
-        if !*is_busy {
+        if *is_busy {
+            false
+        } else {
             *is_busy = true;
             true
-        } else {
-            false
         }
     }
 
@@ -67,6 +67,7 @@ impl ShellState {
 
     /// Atomically get the PID only if shell is busy.
     /// Acquires both locks to avoid TOCTOU race between is_busy and get_pid.
+    #[allow(clippy::doc_markdown)]
     pub async fn get_pid_if_busy(&self) -> Option<u32> {
         // Lock both in consistent order to avoid deadlock
         let is_busy = self.is_busy.lock().await;

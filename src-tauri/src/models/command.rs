@@ -34,6 +34,7 @@ impl CommandResponse {
     /// Create a command response from an exit code.
     /// Sets success = true if exit_code == 0, false otherwise.
     #[must_use]
+    #[allow(clippy::doc_markdown)]
     pub fn with_exit_code(exit_code: i32) -> Self {
         Self {
             success: exit_code == 0,
