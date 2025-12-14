@@ -1,5 +1,4 @@
 use leptos::prelude::*;
-use std::path::Path;
 
 use crate::models::TerminalState;
 
@@ -22,40 +21,47 @@ pub fn PromptIndicator() -> impl IntoView {
 /// - Replaces home directory with ~
 /// - Truncates long paths
 fn format_cwd(cwd: &str) -> String {
-    // Get home directory for abbreviation
-    let Some(home) = home_dir() else {
-        return cwd.to_string();
-    };
+    let mut display = cwd.to_string();
 
-    // Replace home directory with ~ using Path-based comparison
-    let cwd_path = Path::new(cwd);
-    let home_path = Path::new(&home);
+    // Replace home directory with ~ when available.
+    if let Some(home) = home_dir() {
+        let home_norm = home.replace('\\', "/");
+        let cwd_norm = cwd.replace('\\', "/");
 
-    if let Ok(stripped) = cwd_path.strip_prefix(home_path) {
-        if stripped.as_os_str().is_empty() {
-            return "~".to_string();
+        let home_trimmed = home_norm.trim_end_matches('/');
+        if cwd_norm == home_trimmed {
+            display = "~".to_string();
+        } else {
+            let prefix = format!("{home_trimmed}/");
+            if cwd_norm.starts_with(&prefix) {
+                display = format!("~{}", &cwd_norm[home_trimmed.len()..]);
+            }
         }
-        return format!("~/{}", stripped.display());
     }
 
     // Truncate very long paths
-    if cwd.len() > 50 {
-        let path = Path::new(cwd);
-        let components: Vec<_> = path.components().collect();
+    if display.len() > 50 {
+        let components: Vec<&str> = display
+            .split(['/', '\\'])
+            .filter(|c| !c.is_empty())
+            .collect();
 
         if components.len() >= 3 {
             // Get the last two components for display
-            let second_last = components[components.len() - 2]
-                .as_os_str()
-                .to_string_lossy();
-            let last = components[components.len() - 1]
-                .as_os_str()
-                .to_string_lossy();
-            return format!(".../{second_last}/{last}");
+            let second_last = components[components.len() - 2];
+            let last = components[components.len() - 1];
+
+            display = if components[0] == "~" {
+                format!("~/.../{second_last}/{last}")
+            } else if components[0].ends_with(':') {
+                format!("{}/.../{second_last}/{last}", components[0])
+            } else {
+                format!(".../{second_last}/{last}")
+            };
         }
     }
 
-    cwd.to_string()
+    display
 }
 
 /// Get the home directory path
