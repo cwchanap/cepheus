@@ -202,7 +202,6 @@ fn cancel_command(state: TerminalState) {
                     }
                 }
                 // Command cancelled successfully (silence on success)
-                state.is_busy.set(false);
             }
             Err(e) => {
                 let error_msg = e.as_string().unwrap_or_else(|| "Unknown error".to_string());
@@ -210,7 +209,9 @@ fn cancel_command(state: TerminalState) {
                     &format!("cancel_command IPC failed: {error_msg}").into(),
                 );
                 state.show_notification(format!("Cancel failed: {error_msg}"));
-                state.is_busy.set(false);
+                if error_msg.contains("No command currently running") {
+                    state.is_busy.set(false);
+                }
             }
         }
     });
