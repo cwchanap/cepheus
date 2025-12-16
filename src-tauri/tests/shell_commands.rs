@@ -242,11 +242,10 @@ async fn test_output_truncation() {
 
     let history = manager.history_buffer.get_all();
 
-    // Buffer should be at or near capacity (may be slightly over due to warning)
-    // We expect ~50 lines (capacity) plus the command line
-    assert!(
-        history.len() <= 53, // Allow some margin
-        "History length {} should not exceed capacity + margin",
+    assert_eq!(
+        history.len(),
+        50,
+        "History length {} should equal the configured capacity",
         history.len()
     );
 
