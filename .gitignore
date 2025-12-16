@@ -2,9 +2,6 @@
 /dist/
 /target/
 
-# Cargo lock file (workspace manages dependencies)
-/Cargo.lock
-
 # IDE and editor files
 .vscode/
 .idea/
