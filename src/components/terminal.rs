@@ -142,6 +142,27 @@ fn setup_event_listeners(state: TerminalState) {
 /// Fetch initial history and cwd from backend
 #[allow(clippy::future_not_send)]
 async fn fetch_initial_state(state: TerminalState) {
+    match invoke("get_home_dir", JsValue::NULL).await {
+        Ok(home_result) => {
+            if let Some(home) = home_result.as_string() {
+                if let Some(window) = web_sys::window() {
+                    if let Ok(Some(storage)) = window.local_storage() {
+                        if let Err(e) = storage.set_item("home_dir", &home) {
+                            web_sys::console::warn_1(
+                                &format!("Failed to store home_dir in localStorage: {e:?}").into(),
+                            );
+                        }
+                    }
+                }
+            } else {
+                web_sys::console::warn_1(&"home_dir response was not a string".into());
+            }
+        }
+        Err(e) => {
+            web_sys::console::warn_1(&format!("Failed to fetch home_dir: {e:?}").into());
+        }
+    }
+
     // Fetch history with error handling
     match invoke("get_history", JsValue::NULL).await {
         Ok(history_result) => {

@@ -22,22 +22,19 @@ pub fn OutputDisplay() -> impl IntoView {
             // Schedule scrolling after the next paint to ensure DOM is updated
             if let Some(window) = web_sys::window() {
                 let window_clone = window.clone();
-                let scroll_closure: Closure<dyn Fn()> = Closure::wrap(Box::new(move || {
+                let scroll_closure = Closure::once_into_js(move || {
                     if let Some(document) = window_clone.document() {
                         if let Some(container) = document.get_element_by_id("output-container") {
                             let scroll_height = container.scroll_height();
                             container.set_scroll_top(scroll_height);
                         }
                     }
-                }));
+                });
 
                 // Schedule the scroll callback for after the next paint
                 window
-                    .request_animation_frame(scroll_closure.as_ref().unchecked_ref())
+                    .request_animation_frame(scroll_closure.unchecked_ref())
                     .expect("Failed to request animation frame");
-
-                // Keep the closure alive by forgetting it
-                scroll_closure.forget();
             }
         }
     });
