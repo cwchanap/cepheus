@@ -3,7 +3,9 @@ pub mod logging;
 pub mod models;
 pub mod state;
 
-use commands::shell::{cancel_command, change_directory, execute_command, get_cwd, get_history};
+use commands::shell::{
+    cancel_command, change_directory, execute_command, get_cwd, get_history, get_home_dir,
+};
 use logging::setup_logging;
 use state::ShellManager;
 
@@ -59,6 +61,7 @@ pub fn run() {
             cancel_command,
             get_history,
             get_cwd,
+            get_home_dir,
             change_directory
         ])
         .run(tauri::generate_context!())
