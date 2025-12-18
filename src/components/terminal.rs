@@ -146,13 +146,26 @@ async fn fetch_initial_state(state: TerminalState) {
         Ok(home_result) => {
             if let Some(home) = home_result.as_string() {
                 if let Some(window) = web_sys::window() {
-                    if let Ok(Some(storage)) = window.local_storage() {
-                        if let Err(e) = storage.set_item("home_dir", &home) {
+                    match window.local_storage() {
+                        Ok(Some(storage)) => {
+                            if let Err(e) = storage.set_item("home_dir", &home) {
+                                web_sys::console::warn_1(
+                                    &format!("Failed to store home_dir in localStorage: {e:?}")
+                                        .into(),
+                                );
+                            }
+                        }
+                        Ok(None) => {
                             web_sys::console::warn_1(
-                                &format!("Failed to store home_dir in localStorage: {e:?}").into(),
+                                &"localStorage unavailable; cannot persist home_dir".into(),
                             );
                         }
+                        Err(_) => {}
                     }
+                } else {
+                    web_sys::console::warn_1(
+                        &"No window available; cannot persist home_dir".into(),
+                    );
                 }
             } else {
                 web_sys::console::warn_1(&"home_dir response was not a string".into());

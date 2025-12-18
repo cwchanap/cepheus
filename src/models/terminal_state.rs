@@ -1,7 +1,5 @@
 use leptos::prelude::*;
 
-use std::collections::VecDeque;
-
 use crate::models::OutputLine;
 
 /// Frontend-only reactive state (Leptos signals).
@@ -11,7 +9,7 @@ pub struct TerminalState {
     /// Current command being typed
     pub current_input: RwSignal<String>,
     /// Terminal history (synced from backend)
-    pub history: RwSignal<VecDeque<OutputLine>>,
+    pub history: RwSignal<Vec<OutputLine>>,
     /// Current working directory
     pub cwd: RwSignal<String>,
     /// Is a command currently running?
@@ -31,7 +29,7 @@ impl TerminalState {
     pub fn new() -> Self {
         Self {
             current_input: RwSignal::new(String::new()),
-            history: RwSignal::new(VecDeque::new()),
+            history: RwSignal::new(Vec::new()),
             cwd: RwSignal::new(String::from("~")),
             is_busy: RwSignal::new(false),
             notification: RwSignal::new(None),
@@ -48,18 +46,20 @@ impl TerminalState {
     /// Add a line to the history
     pub fn push_history(&self, line: OutputLine) {
         self.history.update(|h| {
-            if h.len() == Self::HISTORY_CAPACITY {
-                h.pop_front();
+            h.push(line);
+            let excess = h.len().saturating_sub(Self::HISTORY_CAPACITY);
+            if excess > 0 {
+                h.drain(0..excess);
             }
-            h.push_back(line);
         });
     }
 
     /// Set the history (replacing existing)
     pub fn set_history(&self, lines: Vec<OutputLine>) {
-        let mut history = VecDeque::from(lines);
-        while history.len() > Self::HISTORY_CAPACITY {
-            history.pop_front();
+        let mut history = lines;
+        let excess = history.len().saturating_sub(Self::HISTORY_CAPACITY);
+        if excess > 0 {
+            history.drain(0..excess);
         }
         self.history.set(history);
     }

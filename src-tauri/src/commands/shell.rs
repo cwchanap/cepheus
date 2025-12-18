@@ -345,8 +345,7 @@ pub async fn get_cwd(state: State<'_, ShellManager>) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn get_home_dir() -> Result<String, String> {
-    let home =
-        dirs_next::home_dir().ok_or_else(|| "Failed to determine home directory".to_string())?;
+    let home = dirs::home_dir().ok_or_else(|| "Failed to determine home directory".to_string())?;
     Ok(home.to_string_lossy().to_string())
 }
 

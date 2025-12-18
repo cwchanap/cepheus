@@ -6,7 +6,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 /// # Errors
 /// Returns an error if the log directory cannot be created or logging fails to initialize.
 pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
-    let log_dir = dirs_next::home_dir()
+    let log_dir = dirs::home_dir()
         .ok_or("Cannot find home directory")?
         .join(".cepheus");
 
