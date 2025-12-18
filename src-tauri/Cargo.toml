@@ -29,7 +29,7 @@ tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "s
 tracing = "0.1"
 tracing-subscriber = { version = "=0.3.20", features = ["env-filter"] }
 tracing-appender = "0.2"
-dirs-next = "2"
+dirs = "5"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.30", features = ["signal", "process"] }
