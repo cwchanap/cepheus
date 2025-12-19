@@ -12,6 +12,8 @@ pub struct TerminalState {
     pub history: RwSignal<Vec<OutputLine>>,
     /// Current working directory
     pub cwd: RwSignal<String>,
+    /// Home directory (kept in-memory to avoid persisting PII)
+    pub home_dir: RwSignal<Option<String>>,
     /// Is a command currently running?
     pub is_busy: RwSignal<bool>,
     /// Active notification (if any)
@@ -31,6 +33,7 @@ impl TerminalState {
             current_input: RwSignal::new(String::new()),
             history: RwSignal::new(Vec::new()),
             cwd: RwSignal::new(String::from("~")),
+            home_dir: RwSignal::new(None),
             is_busy: RwSignal::new(false),
             notification: RwSignal::new(None),
             listener_failed: RwSignal::new(false),

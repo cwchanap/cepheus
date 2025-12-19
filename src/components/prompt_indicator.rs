@@ -9,7 +9,7 @@ pub fn PromptIndicator() -> impl IntoView {
 
     view! {
         <div class="prompt-indicator">
-            <span class="cwd">{move || format_cwd(&state.cwd.get())}</span>
+            <span class="cwd">{move || format_cwd(&state.cwd.get(), state.home_dir.get())}</span>
             <span class="symbol">
                 {move || if state.is_busy.get() { "⏳ " } else { "$ " }}
             </span>
@@ -20,11 +20,11 @@ pub fn PromptIndicator() -> impl IntoView {
 /// Format the current working directory for display.
 /// - Replaces home directory with ~
 /// - Truncates long paths
-fn format_cwd(cwd: &str) -> String {
+fn format_cwd(cwd: &str, home_opt: Option<String>) -> String {
     let mut display = cwd.to_string();
 
     // Replace home directory with ~ when available.
-    if let Some(home) = home_dir() {
+    if let Some(home) = home_opt {
         let home_norm = home.replace('\\', "/");
         let cwd_norm = cwd.replace('\\', "/");
 
@@ -62,21 +62,4 @@ fn format_cwd(cwd: &str) -> String {
     }
 
     display
-}
-
-/// Get the home directory path
-fn home_dir() -> Option<String> {
-    // In WASM, we can't access filesystem directly
-    // So we'll use a heuristic or return a placeholder
-    // This will be set properly when get_cwd is called
-    if let Some(window) = web_sys::window() {
-        if let Ok(Some(storage)) = window.local_storage() {
-            if let Ok(Some(home)) = storage.get_item("home_dir") {
-                return Some(home);
-            }
-        }
-    }
-
-    // No default path — return None (no macOS home path fallback)
-    None
 }

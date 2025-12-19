@@ -139,49 +139,29 @@ fn setup_event_listeners(state: TerminalState) {
     });
 }
 
-/// Fetch initial history and cwd from backend
+/// Fetch and store the home directory in-memory to avoid persisting PII client-side.
 #[allow(clippy::future_not_send)]
-async fn fetch_initial_state(state: TerminalState) {
+async fn set_home_dir_in_memory(state: TerminalState) {
     match invoke("get_home_dir", JsValue::NULL).await {
-        Ok(home_result) => {
-            if let Some(home) = home_result.as_string() {
-                if let Some(window) = web_sys::window() {
-                    match window.local_storage() {
-                        Ok(Some(storage)) => {
-                            if let Err(e) = storage.set_item("home_dir", &home) {
-                                web_sys::console::warn_1(
-                                    &format!("Failed to store home_dir in localStorage: {e:?}")
-                                        .into(),
-                                );
-                            }
-                        }
-                        Ok(None) => {
-                            web_sys::console::warn_1(
-                                &"localStorage unavailable; cannot persist home_dir".into(),
-                            );
-                        }
-                        Err(e) => {
-                            web_sys::console::warn_1(
-                                &format!(
-                                    "Failed to access localStorage; cannot persist home_dir: {e:?}"
-                                )
-                                .into(),
-                            );
-                        }
-                    }
-                } else {
-                    web_sys::console::warn_1(
-                        &"No window available; cannot persist home_dir".into(),
-                    );
-                }
-            } else {
+        Ok(home_result) => match home_result.as_string() {
+            Some(home) => {
+                state.home_dir.set(Some(home));
+            }
+            None => {
                 web_sys::console::warn_1(&"home_dir response was not a string".into());
             }
-        }
+        },
         Err(e) => {
             web_sys::console::warn_1(&format!("Failed to fetch home_dir: {e:?}").into());
         }
     }
+}
+
+/// Fetch initial history and cwd from backend
+#[allow(clippy::future_not_send)]
+async fn fetch_initial_state(state: TerminalState) {
+    // We intentionally keep home_dir in-memory (PII) instead of persisting to localStorage.
+    set_home_dir_in_memory(state).await;
 
     // Fetch history with error handling
     match invoke("get_history", JsValue::NULL).await {
