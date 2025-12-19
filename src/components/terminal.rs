@@ -160,7 +160,14 @@ async fn fetch_initial_state(state: TerminalState) {
                                 &"localStorage unavailable; cannot persist home_dir".into(),
                             );
                         }
-                        Err(_) => {}
+                        Err(e) => {
+                            web_sys::console::warn_1(
+                                &format!(
+                                    "Failed to access localStorage; cannot persist home_dir: {e:?}"
+                                )
+                                .into(),
+                            );
+                        }
                     }
                 } else {
                     web_sys::console::warn_1(
