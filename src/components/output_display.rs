@@ -6,8 +6,10 @@ use wasm_bindgen::JsCast;
 
 use crate::models::{OutputLine, TerminalState};
 
+type RafScrollRecord = (i32, Closure<dyn FnMut()>);
+
 thread_local! {
-    static RAF_SCROLL_CLOSURE: RefCell<Option<Closure<dyn FnMut()>>> = RefCell::new(None);
+    static RAF_SCROLL_REQUEST: RefCell<Option<RafScrollRecord>> = RefCell::new(None);
 }
 
 /// Scrollable display of terminal history.
@@ -27,7 +29,12 @@ pub fn OutputDisplay() -> impl IntoView {
             // Schedule scrolling after the next paint to ensure DOM is updated
             if let Some(window) = web_sys::window() {
                 let window_clone = window.clone();
-                RAF_SCROLL_CLOSURE.with(|cell| {
+                RAF_SCROLL_REQUEST.with(|cell| {
+                    if let Some((pending_id, _)) = cell.borrow().as_ref() {
+                        let _ = window.cancel_animation_frame(*pending_id);
+                        cell.borrow_mut().take();
+                    }
+
                     let scroll_closure: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
                         if let Some(document) = window_clone.document() {
                             if let Some(container) = document.get_element_by_id("output-container")
@@ -37,17 +44,16 @@ pub fn OutputDisplay() -> impl IntoView {
                             }
                         }
 
-                        RAF_SCROLL_CLOSURE.with(|drop_cell| {
+                        RAF_SCROLL_REQUEST.with(|drop_cell| {
                             drop_cell.borrow_mut().take();
                         });
                     }));
 
                     // Schedule the scroll callback for after the next paint
-                    if window
-                        .request_animation_frame(scroll_closure.as_ref().unchecked_ref())
-                        .is_ok()
+                    if let Ok(request_id) =
+                        window.request_animation_frame(scroll_closure.as_ref().unchecked_ref())
                     {
-                        *cell.borrow_mut() = Some(scroll_closure);
+                        *cell.borrow_mut() = Some((request_id, scroll_closure));
                     }
                 });
             }

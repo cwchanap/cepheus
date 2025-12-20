@@ -343,9 +343,14 @@ pub async fn get_cwd(state: State<'_, ShellManager>) -> Result<String, String> {
     Ok(cwd)
 }
 
+/// Return the user's home directory path as a string.
+///
+/// # Errors
+/// Returns `Err` when the home directory cannot be determined.
 #[tauri::command]
-pub async fn get_home_dir() -> Result<String, String> {
-    let home = dirs::home_dir().ok_or_else(|| "Failed to determine home directory".to_string())?;
+pub fn get_home_dir() -> Result<String, String> {
+    let home =
+        dirs_next::home_dir().ok_or_else(|| "Failed to determine home directory".to_string())?;
     Ok(home.to_string_lossy().to_string())
 }
 
