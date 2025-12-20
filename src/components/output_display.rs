@@ -1,13 +1,15 @@
 use leptos::html::Div;
 use leptos::prelude::*;
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::thread_local;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use crate::models::{OutputLine, TerminalState};
 
-type RafClosure = Rc<RefCell<Option<Closure<dyn FnMut()>>>>;
+thread_local! {
+    static RAF_SCROLL_CLOSURE: RefCell<Option<Closure<dyn FnMut()>>> = RefCell::new(None);
+}
 
 /// Scrollable display of terminal history.
 #[component]
@@ -26,28 +28,29 @@ pub fn OutputDisplay() -> impl IntoView {
             // Schedule scrolling after the next paint to ensure DOM is updated
             if let Some(window) = web_sys::window() {
                 let window_clone = window.clone();
-                let raf_closure: RafClosure = Rc::new(RefCell::new(None));
-                let raf_closure_drop = Rc::clone(&raf_closure);
-                let scroll_closure: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
-                    if let Some(document) = window_clone.document() {
-                        if let Some(container) = document.get_element_by_id("output-container") {
-                            let scroll_height = container.scroll_height();
-                            container.set_scroll_top(scroll_height);
+                RAF_SCROLL_CLOSURE.with(|cell| {
+                    let scroll_closure: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {
+                        if let Some(document) = window_clone.document() {
+                            if let Some(container) = document.get_element_by_id("output-container")
+                            {
+                                let scroll_height = container.scroll_height();
+                                container.set_scroll_top(scroll_height);
+                            }
                         }
+
+                        RAF_SCROLL_CLOSURE.with(|drop_cell| {
+                            drop_cell.borrow_mut().take();
+                        });
+                    }));
+
+                    // Schedule the scroll callback for after the next paint
+                    if window
+                        .request_animation_frame(scroll_closure.as_ref().unchecked_ref())
+                        .is_ok()
+                    {
+                        *cell.borrow_mut() = Some(scroll_closure);
                     }
-
-                    let _ = raf_closure_drop.borrow_mut().take();
-                }));
-
-                *raf_closure.borrow_mut() = Some(scroll_closure);
-
-                // Schedule the scroll callback for after the next paint
-                let borrow = raf_closure.borrow();
-                if let Some(cb) = borrow.as_ref() {
-                    window
-                        .request_animation_frame(cb.as_ref().unchecked_ref())
-                        .expect("Failed to request animation frame");
-                }
+                });
             }
         }
     });
