@@ -16,7 +16,8 @@
   --notification-bg: #3c3c00;
   --scrollbar-thumb-hover: #555;
   --placeholder-color: #666;
-  --notification-height: 17px; /* 8px top + 8px bottom padding + 1px border */
+  /* Reserve space matching the actual rendered notification bar height (14px font, 8px top/bottom padding, 1px border) */
+  --notification-height: 38px;
 
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
   font-size: 14px;
