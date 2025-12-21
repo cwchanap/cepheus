@@ -18,7 +18,6 @@ pub fn PromptIndicator() -> impl IntoView {
 }
 
 /// Format the current working directory for display.
-/// - Replaces home directory with ~
 /// - Truncates long paths
 fn format_cwd(cwd: &str) -> String {
     if cwd.is_empty() {
