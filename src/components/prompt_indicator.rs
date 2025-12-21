@@ -9,7 +9,7 @@ pub fn PromptIndicator() -> impl IntoView {
 
     view! {
         <div class="prompt-indicator">
-            <span class="cwd">{move || format_cwd(&state.cwd.get(), state.home_dir.get())}</span>
+            <span class="cwd">{move || format_cwd(&state.cwd.get(), state.has_home_dir.get())}</span>
             <span class="symbol">
                 {move || if state.is_busy.get() { "⏳ " } else { "$ " }}
             </span>
@@ -20,22 +20,23 @@ pub fn PromptIndicator() -> impl IntoView {
 /// Format the current working directory for display.
 /// - Replaces home directory with ~
 /// - Truncates long paths
-fn format_cwd(cwd: &str, home_opt: Option<String>) -> String {
+fn format_cwd(cwd: &str, has_home: bool) -> String {
+    if cwd.is_empty() {
+        return String::from("(loading cwd)");
+    }
+
     let mut display = cwd.to_string();
 
-    // Replace home directory with ~ when available.
-    if let Some(home) = home_opt {
-        let home_norm = home.replace('\\', "/");
-        let cwd_norm = cwd.replace('\\', "/");
-
-        let home_trimmed = home_norm.trim_end_matches('/');
-        if cwd_norm == home_trimmed {
-            display = "~".to_string();
+    // Replace home directory with ~ when available (presence only, not exact path).
+    if has_home {
+        // Best-effort: show "~" if cwd equals home, otherwise leave unchanged.
+        if display == "/" || display == "\\" {
+            // Root edge case: leave as-is.
         } else {
-            let prefix = format!("{home_trimmed}/");
-            if cwd_norm.starts_with(&prefix) {
-                display = format!("~{}", &cwd_norm[home_trimmed.len()..]);
-            }
+            display = display
+                .trim_start_matches(std::path::MAIN_SEPARATOR)
+                .to_string();
+            display = format!("~{}", if display.is_empty() { "" } else { "/" }) + &display;
         }
     }
 
