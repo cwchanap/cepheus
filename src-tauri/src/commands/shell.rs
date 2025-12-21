@@ -7,6 +7,13 @@ use tokio::process::Command;
 use crate::models::{CommandResponse, NotificationLevel, OutputLine};
 use crate::state::{current_timestamp_ms, ShellManager};
 
+/// Remove control characters (including ANSI escape initiators) while preserving tabs/newlines.
+fn sanitize_output(text: String) -> String {
+    text.chars()
+        .filter(|c| matches!(c, '\n' | '\t') || !c.is_control())
+        .collect()
+}
+
 fn build_shell_command(command: &str) -> Command {
     #[cfg(windows)]
     {
@@ -125,7 +132,7 @@ pub async fn execute_command(
 
         while let Ok(Some(line)) = lines.next_line().await {
             let output_line = OutputLine::Stdout {
-                text: line,
+                text: sanitize_output(line),
                 timestamp: current_timestamp_ms(),
             };
             if let Some(warning) = state_stdout.history_buffer.push(output_line.clone()) {
@@ -151,7 +158,7 @@ pub async fn execute_command(
 
         while let Ok(Some(line)) = lines.next_line().await {
             let output_line = OutputLine::Stderr {
-                text: line,
+                text: sanitize_output(line),
                 timestamp: current_timestamp_ms(),
             };
             if let Some(warning) = state_stderr.history_buffer.push(output_line.clone()) {
@@ -373,6 +380,8 @@ pub async fn change_directory(
     tracing::info!("Changing directory to: {}", path);
 
     let target_path = std::path::Path::new(&path);
+    let home_dir = dirs_next::home_dir()
+        .ok_or_else(|| "Home directory unavailable for validation".to_string())?;
 
     // Handle relative paths
     let absolute_path = if target_path.is_relative() {
@@ -386,6 +395,14 @@ pub async fn change_directory(
             .canonicalize()
             .map_err(|e| format!("Invalid path: {e}"))?
     };
+
+    // Restrict navigation to the user's home directory subtree
+    if !absolute_path.starts_with(&home_dir) {
+        return Err(format!(
+            "Changing directory outside of home is not allowed (home: {})",
+            home_dir.display()
+        ));
+    }
 
     // Verify it's a directory
     if !absolute_path.is_dir() {

@@ -16,8 +16,17 @@
   --notification-bg: #3c3c00;
   --scrollbar-thumb-hover: #555;
   --placeholder-color: #666;
-  /* Reserve space matching the actual rendered notification bar height (14px font, 8px top/bottom padding, 1px border) */
-  --notification-height: 38px;
+  /* Notification bar sizing tokens so layout space stays in sync with styling */
+  --notification-font-size: 14px;
+  --notification-line-height: 1.5;
+  --notification-padding-y: 8px;
+  --notification-padding-x: 16px;
+  --notification-border: 1px;
+  --notification-height: calc(
+    var(--notification-font-size) * var(--notification-line-height) +
+    (var(--notification-padding-y) * 2) +
+    var(--notification-border)
+  );
 
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
   font-size: 14px;
@@ -66,11 +75,13 @@ html, body {
   right: 0;
   background-color: var(--notification-bg);
   color: var(--text-notification);
-  padding: 8px 16px;
+  font-size: var(--notification-font-size);
+  line-height: var(--notification-line-height);
+  padding: var(--notification-padding-y) var(--notification-padding-x);
   text-align: center;
   font-weight: 500;
   z-index: 1000;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--notification-border) solid var(--border-color);
 }
 
 /* Output display */

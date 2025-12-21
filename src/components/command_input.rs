@@ -43,10 +43,20 @@ pub fn CommandInput() -> impl IntoView {
     let input_ref = NodeRef::<leptos::html::Input>::new();
 
     // Auto-focus the input on mount
+    let focus_setup = std::cell::Cell::new(false);
     Effect::new(move |_| {
+        if focus_setup.get() {
+            return;
+        }
+
+        if state.is_input_disabled() {
+            return;
+        }
+
         if let Some(input) = input_ref.get() {
             let html_input: &HtmlInputElement = &input;
             let _ = html_input.focus();
+            focus_setup.set(true);
         }
     });
 
