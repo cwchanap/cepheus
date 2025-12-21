@@ -1,5 +1,10 @@
+use std::cmp::Ordering;
+use std::fs;
+use std::path::Path;
 use tracing_appender::rolling;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+const MAX_LOG_FILES: usize = 14; // keep roughly two weeks of daily logs
 
 /// Setup file-based logging to ~/.cepheus/terminal.log
 ///
@@ -11,6 +16,10 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
         .join(".cepheus");
 
     std::fs::create_dir_all(&log_dir)?;
+
+    // Best-effort cleanup of old rotated logs to avoid unbounded disk growth.
+    // We perform this before initializing tracing so we can log subsequent issues normally.
+    cleanup_old_logs(&log_dir, MAX_LOG_FILES);
 
     let file_appender = rolling::daily(&log_dir, "terminal.log");
 
@@ -29,4 +38,36 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     Ok(())
+}
+
+fn cleanup_old_logs(log_dir: &Path, max_files: usize) {
+    let Ok(entries) = fs::read_dir(log_dir) else {
+        eprintln!("log retention: failed to read log dir {:?}", log_dir);
+        return;
+    };
+
+    let mut logs: Vec<_> = entries
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().map(|ft| ft.is_file()).unwrap_or(false))
+        .filter(|entry| entry.file_name().to_string_lossy().contains("terminal.log"))
+        .filter_map(|entry| {
+            let modified = entry.metadata().ok().and_then(|m| m.modified().ok());
+            Some((entry.path(), modified))
+        })
+        .collect();
+
+    logs.sort_by(|a, b| match (a.1, b.1) {
+        (Some(a_time), Some(b_time)) => b_time.cmp(&a_time),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => Ordering::Equal,
+    });
+
+    if logs.len() > max_files {
+        for (path, _) in logs.into_iter().skip(max_files) {
+            if let Err(err) = fs::remove_file(&path) {
+                eprintln!("log retention: failed to remove {:?}: {err:?}", path);
+            }
+        }
+    }
 }
