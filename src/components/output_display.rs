@@ -30,9 +30,9 @@ pub fn OutputDisplay() -> impl IntoView {
             if let Some(window) = web_sys::window() {
                 let window_clone = window.clone();
                 RAF_SCROLL_REQUEST.with(|cell| {
-                    if let Some((pending_id, _)) = cell.borrow().as_ref() {
-                        let _ = window.cancel_animation_frame(*pending_id);
-                        cell.borrow_mut().take();
+                    if let Some((pending_id, old_closure)) = cell.borrow_mut().take() {
+                        let _ = window.cancel_animation_frame(pending_id);
+                        drop(old_closure);
                     }
 
                     let scroll_closure: Closure<dyn FnMut()> = Closure::wrap(Box::new(move || {

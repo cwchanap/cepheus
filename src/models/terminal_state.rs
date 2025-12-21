@@ -12,7 +12,7 @@ pub struct TerminalState {
     pub history: RwSignal<Vec<OutputLine>>,
     /// Current working directory
     pub cwd: RwSignal<String>,
-    /// Whether the backend reported a home directory (value is intentionally obfuscated)
+    /// True if a home directory exists (presence only, no PII)
     pub has_home_dir: RwSignal<bool>,
     /// Is a command currently running?
     pub is_busy: RwSignal<bool>,
