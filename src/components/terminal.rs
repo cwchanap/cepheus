@@ -3,6 +3,8 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -29,27 +31,35 @@ struct TauriEvent {
 pub fn Terminal() -> impl IntoView {
     let state = use_context::<TerminalState>().expect("TerminalState context missing");
     let listeners = StoredValue::new_local(ListenerHandles::default());
+    let is_alive = Arc::new(AtomicBool::new(true));
 
     // Set up Tauri event listeners on mount - run only once per component instance
-    let listeners_setup = std::cell::Cell::new(false);
     let listeners_for_cleanup = listeners;
-    Effect::new(move |_| {
-        if !listeners_setup.get() {
-            listeners_setup.set(true);
-            setup_event_listeners(state, listeners);
-        }
+    let is_alive_for_cleanup = Arc::clone(&is_alive);
+    on_cleanup(move || {
+        is_alive_for_cleanup.store(false, Ordering::SeqCst);
+        cleanup_listener_handles(listeners_for_cleanup);
     });
-    on_cleanup(move || cleanup_listener_handles(listeners_for_cleanup));
+
+    let state_for_listeners = state;
+    let listeners_for_listeners = listeners;
+    let is_alive_for_listeners = Arc::clone(&is_alive);
+    Effect::new(move |_| {
+        let state = state_for_listeners;
+        let listeners = listeners_for_listeners;
+        let is_alive = Arc::clone(&is_alive_for_listeners);
+        setup_event_listeners(state, listeners, &is_alive);
+    });
 
     // Fetch initial history and cwd on mount - run only once per component instance
-    let fetch_setup = std::cell::Cell::new(false);
+    let state_for_fetch = state;
+    let is_alive_for_fetch = Arc::clone(&is_alive);
     Effect::new(move |_| {
-        if !fetch_setup.get() {
-            fetch_setup.set(true);
-            spawn_local(async move {
-                fetch_initial_state(state).await;
-            });
-        }
+        let state = state_for_fetch;
+        let is_alive = Arc::clone(&is_alive_for_fetch);
+        spawn_local(async move {
+            fetch_initial_state(state, is_alive).await;
+        });
     });
 
     view! {
@@ -124,7 +134,12 @@ fn call_unlisten(unlisten: JsValue, label: &str) {
 }
 
 /// Set up Tauri event listeners for output-line and shell-notification events
-fn setup_event_listeners(state: TerminalState, listeners: ListenerStore) {
+fn setup_event_listeners(
+    state: TerminalState,
+    listeners: ListenerStore,
+    is_alive: &Arc<AtomicBool>,
+) {
+    let is_alive = Arc::clone(is_alive);
     // Output line listener
     let output_handler =
         Rc::new(Closure::new(
@@ -143,9 +158,14 @@ fn setup_event_listeners(state: TerminalState, listeners: ListenerStore) {
     let state_output = state;
     let listeners_output = listeners;
     let output_handler_for_listen = output_handler.clone();
+    let is_alive_output = Arc::clone(&is_alive);
     spawn_local(async move {
         match listen("output-line", &output_handler_for_listen).await {
             Ok(unlisten) => {
+                if !is_alive_output.load(Ordering::SeqCst) {
+                    call_unlisten(unlisten, "output-line");
+                    return;
+                }
                 listeners_output.update_value(|handles| {
                     handles.output = Some(ListenerHandle {
                         callback: output_handler,
@@ -154,6 +174,9 @@ fn setup_event_listeners(state: TerminalState, listeners: ListenerStore) {
                 });
             }
             Err(e) => {
+                if !is_alive_output.load(Ordering::SeqCst) {
+                    return;
+                }
                 let error_msg =
                     format!("Terminal connection failed: output-line listener error: {e:?}");
                 web_sys::console::error_1(&error_msg.clone().into());
@@ -183,9 +206,14 @@ fn setup_event_listeners(state: TerminalState, listeners: ListenerStore) {
         ));
 
     let notify_handler_for_listen = notify_handler.clone();
+    let is_alive_notify = Arc::clone(&is_alive);
     spawn_local(async move {
         match listen("shell-notification", &notify_handler_for_listen).await {
             Ok(unlisten) => {
+                if !is_alive_notify.load(Ordering::SeqCst) {
+                    call_unlisten(unlisten, "shell-notification");
+                    return;
+                }
                 listeners_notify.update_value(|handles| {
                     handles.notify = Some(ListenerHandle {
                         callback: notify_handler,
@@ -194,6 +222,9 @@ fn setup_event_listeners(state: TerminalState, listeners: ListenerStore) {
                 });
             }
             Err(e) => {
+                if !is_alive_notify.load(Ordering::SeqCst) {
+                    return;
+                }
                 let error_msg =
                     format!("Terminal connection failed: shell-notification listener error: {e:?}");
                 web_sys::console::error_1(&error_msg.clone().into());
@@ -206,12 +237,15 @@ fn setup_event_listeners(state: TerminalState, listeners: ListenerStore) {
 
 /// Fetch and store the home directory in-memory to avoid persisting PII client-side.
 #[allow(clippy::future_not_send)]
-async fn set_home_dir_in_memory(state: TerminalState) {
+async fn set_home_dir_in_memory(state: TerminalState, is_alive: Arc<AtomicBool>) {
     match invoke("get_home_dir", JsValue::NULL).await {
         Ok(home_result) => match home_result.as_string() {
             Some(home) => {
                 // Presence only; do not store raw home path in memory.
                 if !home.is_empty() {
+                    if !is_alive.load(Ordering::SeqCst) {
+                        return;
+                    }
                     state.has_home_dir.set(true);
                 }
             }
@@ -227,25 +261,34 @@ async fn set_home_dir_in_memory(state: TerminalState) {
 
 /// Fetch initial history and cwd from backend
 #[allow(clippy::future_not_send)]
-async fn fetch_initial_state(state: TerminalState) {
+async fn fetch_initial_state(state: TerminalState, is_alive: Arc<AtomicBool>) {
     // We intentionally avoid storing the raw home directory; track only presence.
-    set_home_dir_in_memory(state).await;
+    set_home_dir_in_memory(state, Arc::clone(&is_alive)).await;
 
     // Fetch history with error handling
     match invoke("get_history", JsValue::NULL).await {
         Ok(history_result) => {
             match serde_wasm_bindgen::from_value::<Vec<OutputLine>>(history_result) {
                 Ok(history) => {
+                    if !is_alive.load(Ordering::SeqCst) {
+                        return;
+                    }
                     state.set_history(history);
                 }
                 Err(e) => {
                     web_sys::console::error_1(&format!("Failed to parse history: {e:?}").into());
+                    if !is_alive.load(Ordering::SeqCst) {
+                        return;
+                    }
                     state.show_notification("Failed to load command history".to_string());
                 }
             }
         }
         Err(e) => {
             web_sys::console::error_1(&format!("Failed to fetch history: {e:?}").into());
+            if !is_alive.load(Ordering::SeqCst) {
+                return;
+            }
             state.show_notification("Failed to connect to shell service".to_string());
         }
     }
@@ -254,6 +297,9 @@ async fn fetch_initial_state(state: TerminalState) {
     match invoke("get_cwd", JsValue::NULL).await {
         Ok(cwd_result) => {
             if let Some(cwd) = cwd_result.as_string() {
+                if !is_alive.load(Ordering::SeqCst) {
+                    return;
+                }
                 state.cwd.set(cwd);
             } else {
                 web_sys::console::warn_1(&"CWD response was not a string".into());
