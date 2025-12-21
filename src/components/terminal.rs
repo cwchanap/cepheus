@@ -145,7 +145,10 @@ async fn set_home_dir_in_memory(state: TerminalState) {
     match invoke("get_home_dir", JsValue::NULL).await {
         Ok(home_result) => match home_result.as_string() {
             Some(home) => {
-                state.home_dir.set(Some(home));
+                // Presence only; do not store raw home path in memory.
+                if !home.is_empty() {
+                    state.has_home_dir.set(true);
+                }
             }
             None => {
                 web_sys::console::warn_1(&"home_dir response was not a string".into());
@@ -160,7 +163,7 @@ async fn set_home_dir_in_memory(state: TerminalState) {
 /// Fetch initial history and cwd from backend
 #[allow(clippy::future_not_send)]
 async fn fetch_initial_state(state: TerminalState) {
-    // We intentionally keep home_dir in-memory (PII) instead of persisting to localStorage.
+    // We intentionally avoid storing the raw home directory; track only presence.
     set_home_dir_in_memory(state).await;
 
     // Fetch history with error handling
