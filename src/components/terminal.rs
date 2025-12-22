@@ -225,8 +225,10 @@ fn setup_event_listeners(
                 if !is_alive_notify.load(Ordering::SeqCst) {
                     return;
                 }
-                let error_msg =
-                    format!("Terminal connection failed: shell-notification listener error: {e:?}");
+                let err_text = e.as_string().unwrap_or_else(|| format!("{e:?}"));
+                let error_msg = format!(
+                    "Terminal connection failed: shell-notification listener error: {err_text}"
+                );
                 web_sys::console::error_1(&error_msg.clone().into());
                 state_notify.set_listener_failed(error_msg.clone());
                 state_notify.show_notification(format!("Terminal is non-functional: {error_msg}"));
@@ -238,23 +240,31 @@ fn setup_event_listeners(
 /// Fetch and store the home directory in-memory to avoid persisting PII client-side.
 #[allow(clippy::future_not_send)]
 async fn set_home_dir_in_memory(state: TerminalState, is_alive: Arc<AtomicBool>) {
+    let set_presence = |present| {
+        if !is_alive.load(Ordering::SeqCst) {
+            return;
+        }
+        state.has_home_dir.set(present);
+    };
+
     match invoke("get_home_dir", JsValue::NULL).await {
         Ok(home_result) => match home_result.as_string() {
             Some(home) => {
                 // Presence only; do not store raw home path in memory.
                 if !home.is_empty() {
-                    if !is_alive.load(Ordering::SeqCst) {
-                        return;
-                    }
-                    state.has_home_dir.set(true);
+                    set_presence(true);
+                } else {
+                    set_presence(false);
                 }
             }
             None => {
                 web_sys::console::warn_1(&"home_dir response was not a string".into());
+                set_presence(false);
             }
         },
         Err(e) => {
             web_sys::console::warn_1(&format!("Failed to fetch home_dir: {e:?}").into());
+            set_presence(false);
         }
     }
 }

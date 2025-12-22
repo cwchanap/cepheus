@@ -381,7 +381,9 @@ pub async fn change_directory(
 
     let target_path = std::path::Path::new(&path);
     let home_dir = dirs_next::home_dir()
-        .ok_or_else(|| "Home directory unavailable for validation".to_string())?;
+        .ok_or_else(|| "Home directory unavailable for validation".to_string())?
+        .canonicalize()
+        .map_err(|e| format!("Failed to canonicalize home directory: {e}"))?;
 
     // Handle relative paths
     let absolute_path = if target_path.is_relative() {
