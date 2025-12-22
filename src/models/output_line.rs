@@ -58,14 +58,24 @@ impl OutputLine {
     /// Combines timestamp with text content to ensure uniqueness even when
     /// multiple lines share the same timestamp (millisecond resolution)
     pub fn unique_key(&self) -> String {
-        let timestamp = self.timestamp();
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
 
-        match self {
-            Self::Command { text, .. } => format!("cmd_{timestamp}_{text}"),
-            Self::Stdout { text, .. } => format!("out_{timestamp}_{text}"),
-            Self::Stderr { text, .. } => format!("err_{timestamp}_{text}"),
-            Self::Notification { message, .. } => format!("not_{timestamp}_{message}"),
-        }
+        let timestamp = self.timestamp();
+        let (prefix, payload): (&str, &str) = match self {
+            Self::Command { text, .. } => ("cmd", text),
+            Self::Stdout { text, .. } => ("out", text),
+            Self::Stderr { text, .. } => ("err", text),
+            Self::Notification { message, .. } => ("not", message),
+        };
+
+        let mut hasher = DefaultHasher::new();
+        prefix.hash(&mut hasher);
+        timestamp.hash(&mut hasher);
+        payload.hash(&mut hasher);
+        let digest = hasher.finish();
+
+        format!("{prefix}_{timestamp:016x}_{digest:016x}")
     }
 }
 
