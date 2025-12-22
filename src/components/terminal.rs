@@ -248,20 +248,19 @@ async fn set_home_dir_in_memory(state: TerminalState, is_alive: Arc<AtomicBool>)
     };
 
     match invoke("get_home_dir", JsValue::NULL).await {
-        Ok(home_result) => match home_result.as_string() {
-            Some(home) => {
+        Ok(home_result) => {
+            if let Some(home) = home_result.as_string() {
                 // Presence only; do not store raw home path in memory.
-                if !home.is_empty() {
-                    set_presence(true);
-                } else {
+                if home.is_empty() {
                     set_presence(false);
+                } else {
+                    set_presence(true);
                 }
-            }
-            None => {
+            } else {
                 web_sys::console::warn_1(&"home_dir response was not a string".into());
                 set_presence(false);
             }
-        },
+        }
         Err(e) => {
             web_sys::console::warn_1(&format!("Failed to fetch home_dir: {e:?}").into());
             set_presence(false);
