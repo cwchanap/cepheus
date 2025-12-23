@@ -24,6 +24,19 @@ fn format_cwd(cwd: &str) -> String {
         return String::from("(loading cwd)");
     }
 
+    let truncate_component = |s: &str, max_len: usize| -> String {
+        if s.len() <= max_len {
+            return s.to_string();
+        }
+        let prefix_len = max_len / 2;
+        let suffix_len = max_len.saturating_sub(prefix_len + 1);
+        format!(
+            "{}…{}",
+            &s[..prefix_len],
+            &s[s.len().saturating_sub(suffix_len)..]
+        )
+    };
+
     let is_windows_drive_prefix = |s: &str| s.len() == 2 && s.ends_with(':');
 
     // For display we normalize backslashes to forward slashes for consistency
@@ -47,11 +60,14 @@ fn format_cwd(cwd: &str) -> String {
     } else if normalized.starts_with("//") {
         // UNC path: //server/share/...
         if components.len() >= 3 {
-            let share = components[1];
-            let server = components[0];
+            let share = truncate_component(components[1], 12);
+            let server = truncate_component(components[0], 12);
             format!("//{server}/{share}/.../{second_last}/{last}")
         } else {
-            format!("//.../{second_last}/{last}")
+            // Two-component UNC: //server/share — keep concise
+            let server = truncate_component(second_last, 12);
+            let share = truncate_component(last, 12);
+            format!("//{server}/{share}")
         }
     } else {
         format!(".../{second_last}/{last}")

@@ -54,9 +54,10 @@ impl OutputLine {
         }
     }
 
-    /// Generate a stable unique key for this output line
-    /// Combines timestamp with text content to ensure uniqueness even when
-    /// multiple lines share the same timestamp (millisecond resolution)
+    /// Generate a session-unique key for this output line.
+    /// Combines timestamp with text content to reduce collisions when
+    /// multiple lines share the same timestamp (millisecond resolution).
+    /// Note: uses `DefaultHasher`, which is not stable across runs/versions.
     pub fn unique_key(&self) -> String {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
@@ -66,7 +67,14 @@ impl OutputLine {
             Self::Command { text, .. } => ("cmd", text),
             Self::Stdout { text, .. } => ("out", text),
             Self::Stderr { text, .. } => ("err", text),
-            Self::Notification { message, .. } => ("not", message),
+            Self::Notification { message, level, .. } => (
+                match level {
+                    NotificationLevel::Info => "not_info",
+                    NotificationLevel::Warning => "not_warn",
+                    NotificationLevel::Error => "not_err",
+                },
+                message,
+            ),
         };
 
         let mut hasher = DefaultHasher::new();
