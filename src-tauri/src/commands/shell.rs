@@ -2,16 +2,42 @@ use std::process::Stdio;
 
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
+use tokio::process::{Child, Command};
 
 use crate::models::{CommandResponse, NotificationLevel, OutputLine};
 use crate::state::{current_timestamp_ms, ShellManager};
+use strip_ansi_escapes::strip as strip_ansi_bytes;
 
-/// Remove control characters (including ANSI escape initiators) while preserving tabs/newlines.
+/// Remove ANSI escape sequences while preserving newlines, tabs, and carriage returns.
 fn sanitize_output(text: String) -> String {
-    text.chars()
-        .filter(|c| matches!(c, '\n' | '\t') || !c.is_control())
-        .collect()
+    // strip_ansi_escapes works on bytes; it preserves \r, \n, and \t.
+    // If stripping fails, fall back to the original text.
+    match strip_ansi_bytes(text.as_bytes()) {
+        Ok(clean_bytes) => String::from_utf8_lossy(&clean_bytes).into_owned(),
+        Err(e) => {
+            tracing::warn!("Failed to strip ANSI escapes: {}", e);
+            text
+        }
+    }
+}
+
+async fn kill_child_with_fallback(child: &mut Child) {
+    match child.kill().await {
+        Ok(()) => {
+            tracing::info!("Successfully killed child process after wait failure");
+        }
+        Err(kill_err) => {
+            tracing::warn!("child.kill().await failed: {}", kill_err);
+            if let Err(start_kill_err) = child.start_kill() {
+                tracing::warn!(
+                    "child.start_kill() fallback also failed: {}",
+                    start_kill_err
+                );
+            } else {
+                tracing::info!("start_kill() succeeded as fallback");
+            }
+        }
+    }
 }
 
 fn build_shell_command(command: &str) -> Command {
@@ -200,23 +226,7 @@ pub async fn execute_command(
             tracing::error!("Failed to wait for process: {}", e);
 
             // Attempt to terminate the child process explicitly
-            // First try async kill
-            match child_for_wait.kill().await {
-                Ok(()) => {
-                    tracing::info!("Successfully killed child process after wait failure");
-                }
-                Err(kill_err) => {
-                    tracing::warn!("child.kill().await failed: {}", kill_err);
-                    if let Err(start_kill_err) = child_for_wait.start_kill() {
-                        tracing::warn!(
-                            "child.start_kill() fallback also failed: {}",
-                            start_kill_err
-                        );
-                    } else {
-                        tracing::info!("start_kill() succeeded as fallback");
-                    }
-                }
-            }
+            kill_child_with_fallback(&mut child_for_wait).await;
 
             // Wait for output readers to complete
             if let Err(join_err) = stdout_handle.await {

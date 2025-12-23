@@ -177,8 +177,9 @@ fn setup_event_listeners(
                 if !is_alive_output.load(Ordering::SeqCst) {
                     return;
                 }
+                let err_text = e.as_string().unwrap_or_else(|| format!("{e:?}"));
                 let error_msg =
-                    format!("Terminal connection failed: output-line listener error: {e:?}");
+                    format!("Terminal connection failed: output-line listener error: {err_text}");
                 web_sys::console::error_1(&error_msg.clone().into());
                 state_output.set_listener_failed(error_msg.clone());
                 state_output.show_notification(format!("Terminal is non-functional: {error_msg}"));
