@@ -24,7 +24,7 @@ fn sanitize_output(text: String) -> String {
 async fn kill_child_with_fallback(child: &mut Child) {
     match child.kill().await {
         Ok(()) => {
-            tracing::info!("Successfully killed child process after wait failure");
+            tracing::info!("Issued kill to child process after wait failure (best-effort)");
         }
         Err(kill_err) => {
             tracing::warn!("child.kill().await failed: {}", kill_err);
@@ -34,7 +34,7 @@ async fn kill_child_with_fallback(child: &mut Child) {
                     start_kill_err
                 );
             } else {
-                tracing::info!("start_kill() succeeded as fallback");
+                tracing::info!("Issued start_kill() as fallback (best-effort)");
             }
         }
     }

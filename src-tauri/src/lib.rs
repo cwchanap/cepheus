@@ -27,9 +27,13 @@ pub fn run() {
 
             // Platform-aware fallback for when current_dir fails
             if cfg!(windows) {
-                // Windows: try USERPROFILE first, then derive drive root
+                // Windows: try USERPROFILE first, then derive drive root from env vars
+                let fallback_drive_root = std::env::var("SystemDrive")
+                    .or_else(|_| std::env::var("HOMEDRIVE"))
+                    .map(|drive| format!("{}\\", drive.trim_end_matches('\\')))
+                    .unwrap_or_else(|_| "C:\\".to_string());
                 std::env::var("USERPROFILE").map_or_else(
-                    |_| std::path::PathBuf::from("C:\\"),
+                    |_| std::path::PathBuf::from(fallback_drive_root),
                     std::path::PathBuf::from,
                 )
             } else {

@@ -37,8 +37,14 @@ impl HistoryBuffer {
 
     /// Add line to buffer; evict oldest if at capacity
     pub fn push(&self, line: OutputLine) -> Option<OutputLine> {
-        let mut lines = self.lines.write().unwrap();
-        let mut warning_shown = self.truncation_warning_shown.write().unwrap();
+        let mut lines = self
+            .lines
+            .write()
+            .expect("HistoryBuffer::push failed to acquire write lock on lines");
+        let mut warning_shown = self
+            .truncation_warning_shown
+            .write()
+            .expect("HistoryBuffer::push failed to acquire write lock on truncation_warning_shown");
 
         // Compute how many items we will add: 1 for the new line, +1 if warning will be inserted
         let need_warning = lines.len() >= self.max_capacity && !*warning_shown;
@@ -73,44 +79,73 @@ impl HistoryBuffer {
 
     /// Get all lines for rendering (cloned)
     pub fn get_all(&self) -> Vec<OutputLine> {
-        self.lines.read().unwrap().iter().cloned().collect()
+        self.lines
+            .read()
+            .expect("HistoryBuffer::get_all failed to acquire read lock on lines")
+            .iter()
+            .cloned()
+            .collect()
     }
 
     /// Get line count
     pub fn len(&self) -> usize {
-        self.lines.read().unwrap().len()
+        self.lines
+            .read()
+            .expect("HistoryBuffer::len failed to acquire read lock on lines")
+            .len()
     }
 
     /// Check if buffer is empty
     pub fn is_empty(&self) -> bool {
-        self.lines.read().unwrap().is_empty()
+        self.lines
+            .read()
+            .expect("HistoryBuffer::is_empty failed to acquire read lock on lines")
+            .is_empty()
     }
 
     /// Clear all lines
     pub fn clear(&self) {
-        self.lines.write().unwrap().clear();
-        *self.truncation_warning_shown.write().unwrap() = false;
+        self.lines
+            .write()
+            .expect("HistoryBuffer::clear failed to acquire write lock on lines")
+            .clear();
+        *self.truncation_warning_shown.write().expect(
+            "HistoryBuffer::clear failed to acquire write lock on truncation_warning_shown",
+        ) = false;
     }
 
     /// Check if the truncation warning has been shown
     pub fn has_truncation_warning(&self) -> bool {
-        *self.truncation_warning_shown.read().unwrap()
+        *self
+            .truncation_warning_shown
+            .read()
+            .expect(
+                "HistoryBuffer::has_truncation_warning failed to acquire read lock on truncation_warning_shown",
+            )
     }
 
     /// Get the first line (if any)
     pub fn first(&self) -> Option<OutputLine> {
-        self.lines.read().unwrap().front().cloned()
+        self.lines
+            .read()
+            .expect("HistoryBuffer::first failed to acquire read lock on lines")
+            .front()
+            .cloned()
     }
 
     /// Check if buffer contains a notification with the given message substring
     pub fn contains_warning(&self, substring: &str) -> bool {
-        self.lines.read().unwrap().iter().any(|line| {
-            if let OutputLine::Notification { message, .. } = line {
-                message.contains(substring)
-            } else {
-                false
-            }
-        })
+        self.lines
+            .read()
+            .expect("HistoryBuffer::contains_warning failed to acquire read lock on lines")
+            .iter()
+            .any(|line| {
+                if let OutputLine::Notification { message, .. } = line {
+                    message.contains(substring)
+                } else {
+                    false
+                }
+            })
     }
 }
 

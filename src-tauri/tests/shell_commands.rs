@@ -284,9 +284,14 @@ async fn test_command_latency_under_100ms() {
 
     // Simple echo command should complete well under 100ms
     // We allow a bit more margin for CI environments (200ms)
+    let threshold_ms = if std::env::var("CI").is_ok() {
+        200
+    } else {
+        100
+    };
     assert!(
-        elapsed < Duration::from_millis(200),
-        "Command latency should be under 200ms (was {:?})",
+        elapsed < Duration::from_millis(threshold_ms),
+        "Command latency should be under {threshold_ms}ms (was {:?})",
         elapsed
     );
 

@@ -30,6 +30,8 @@
   --error-banner-bg: #5c2020;
   --error-banner-text: #ffc0c0;
   --error-banner-border: #ff6b6b;
+  --focus-color: #007acc;
+  --selection-bg: #264f78;
 
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
   font-size: 14px;
@@ -166,10 +168,10 @@ html, body {
 }
 
 .command-input:focus {
-  outline: 2px solid #007acc;
+  outline: 2px solid var(--focus-color);
   outline-offset: 1px;
-  box-shadow: 0 0 0 1px #007acc;
-  border: 1px solid #007acc;
+  box-shadow: 0 0 0 1px var(--focus-color);
+  border: 1px solid var(--focus-color);
 }
 
 .command-input::placeholder {
@@ -202,7 +204,7 @@ html, body {
 
 /* Selection styling */
 ::selection {
-  background-color: #264f78;
+  background-color: var(--selection-bg);
   color: var(--text-primary);
 }
 

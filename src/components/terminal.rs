@@ -185,9 +185,10 @@ fn setup_event_listeners(
                 let err_text = e.as_string().unwrap_or_else(|| format!("{e:?}"));
                 let error_msg =
                     format!("Terminal connection failed: output-line listener error: {err_text}");
+                let notification_msg = format!("Terminal is non-functional: {error_msg}");
                 web_sys::console::error_1(&wasm_bindgen::JsValue::from(error_msg.as_str()));
-                state_output.set_listener_failed(error_msg.clone());
-                state_output.show_notification(format!("Terminal is non-functional: {error_msg}"));
+                state_output.set_listener_failed(error_msg);
+                state_output.show_notification(notification_msg);
             }
         }
     });
@@ -245,9 +246,10 @@ fn setup_event_listeners(
                 let error_msg = format!(
                     "Terminal connection failed: shell-notification listener error: {err_text}"
                 );
+                let notification_msg = format!("Terminal is non-functional: {error_msg}");
                 web_sys::console::error_1(&wasm_bindgen::JsValue::from(error_msg.as_str()));
-                state_notify.set_listener_failed(error_msg.clone());
-                state_notify.show_notification(format!("Terminal is non-functional: {error_msg}"));
+                state_notify.set_listener_failed(error_msg);
+                state_notify.show_notification(notification_msg);
             }
         }
     });
