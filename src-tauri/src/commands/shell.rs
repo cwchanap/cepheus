@@ -11,12 +11,12 @@ use strip_ansi_escapes::strip as strip_ansi_bytes;
 /// Remove ANSI escape sequences while preserving newlines, tabs, and carriage returns.
 fn sanitize_output(text: String) -> String {
     // strip_ansi_escapes works on bytes; it preserves \r, \n, and \t.
-    // If stripping fails, fall back to the original text.
+    // If stripping fails, fail closed and drop the text to avoid leaking escape sequences.
     match strip_ansi_bytes(text.as_bytes()) {
         Ok(clean_bytes) => String::from_utf8_lossy(&clean_bytes).into_owned(),
         Err(e) => {
             tracing::warn!("Failed to strip ANSI escapes: {}", e);
-            text
+            String::new()
         }
     }
 }
@@ -298,7 +298,14 @@ pub async fn cancel_command(state: State<'_, ShellManager>) -> Result<(), String
                 .map_err(|_| "PID out of range for Unix signal delivery".to_string())?;
 
             match signal::kill(Pid::from_raw(pid_i32), Signal::SIGINT) {
-                Ok(()) | Err(Errno::ESRCH) => Ok(()),
+                Ok(()) => Ok(()),
+                Err(Errno::ESRCH) => {
+                    tracing::warn!(
+                        "SIGINT skipped: process with PID {} does not exist (ESRCH)",
+                        pid
+                    );
+                    Ok(())
+                }
                 Err(e) => Err(format!("Failed to send SIGINT: {e}")),
             }
         }
@@ -408,7 +415,8 @@ pub async fn change_directory(
             .map_err(|e| format!("Invalid path: {e}"))?
     };
 
-    // Restrict navigation to the user's home directory subtree
+    // Restrict navigation to the user's home directory subtree (intentional sandboxing)
+    // Note: this is a product decision to limit filesystem access; relax only if security model changes.
     if !absolute_path.starts_with(&home_dir) {
         return Err(format!(
             "Changing directory outside of home is not allowed (home: {})",

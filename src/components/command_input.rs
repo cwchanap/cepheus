@@ -219,7 +219,7 @@ fn cancel_command(state: TerminalState) {
                     &format!("cancel_command IPC failed: {error_msg}").into(),
                 );
                 state.show_notification(format!("Cancel failed: {error_msg}"));
-                if error_msg.contains("No command currently running") {
+                if error_msg == "No command currently running" {
                     state.is_busy.set(false);
                 }
             }

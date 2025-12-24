@@ -140,20 +140,23 @@ fn setup_event_listeners(
     is_alive: &Arc<AtomicBool>,
 ) {
     let is_alive = Arc::clone(is_alive);
+    let is_alive_for_output_handler = Arc::clone(&is_alive);
     // Output line listener
-    let output_handler =
-        Rc::new(Closure::new(
-            move |event: JsValue| match serde_wasm_bindgen::from_value::<TauriEvent>(event) {
-                Ok(tauri_event) => {
-                    state.push_history(tauri_event.payload);
-                }
-                Err(e) => {
-                    web_sys::console::error_1(
-                        &format!("Failed to parse output-line event: {e:?}").into(),
-                    );
-                }
-            },
-        ));
+    let output_handler = Rc::new(Closure::new(move |event: JsValue| {
+        if !is_alive_for_output_handler.load(Ordering::SeqCst) {
+            return;
+        }
+        match serde_wasm_bindgen::from_value::<TauriEvent>(event) {
+            Ok(tauri_event) => {
+                state.push_history(tauri_event.payload);
+            }
+            Err(e) => {
+                web_sys::console::error_1(
+                    &format!("Failed to parse output-line event: {e:?}").into(),
+                );
+            }
+        }
+    }));
 
     let state_output = state;
     let listeners_output = listeners;
@@ -180,7 +183,7 @@ fn setup_event_listeners(
                 let err_text = e.as_string().unwrap_or_else(|| format!("{e:?}"));
                 let error_msg =
                     format!("Terminal connection failed: output-line listener error: {err_text}");
-                web_sys::console::error_1(&error_msg.clone().into());
+                web_sys::console::error_1(&wasm_bindgen::JsValue::from(error_msg.as_str()));
                 state_output.set_listener_failed(error_msg.clone());
                 state_output.show_notification(format!("Terminal is non-functional: {error_msg}"));
             }
@@ -190,9 +193,14 @@ fn setup_event_listeners(
     // Notification listener
     let state_notify = state;
     let listeners_notify = listeners;
-    let notify_handler =
-        Rc::new(Closure::new(
-            move |event: JsValue| match serde_wasm_bindgen::from_value::<TauriEvent>(event) {
+    let is_alive_notify = Arc::clone(&is_alive);
+    let notify_handler = Rc::new(Closure::new({
+        let is_alive_notify = Arc::clone(&is_alive_notify);
+        move |event: JsValue| {
+            if !is_alive_notify.load(Ordering::SeqCst) {
+                return;
+            }
+            match serde_wasm_bindgen::from_value::<TauriEvent>(event) {
                 Ok(tauri_event) => {
                     if let OutputLine::Notification { message, .. } = tauri_event.payload {
                         state_notify.show_notification(message);
@@ -203,11 +211,11 @@ fn setup_event_listeners(
                         &format!("Failed to parse notification event: {e:?}").into(),
                     );
                 }
-            },
-        ));
-
+            }
+        }
+    }));
     let notify_handler_for_listen = notify_handler.clone();
-    let is_alive_notify = Arc::clone(&is_alive);
+    let is_alive_notify = Arc::clone(&is_alive_notify);
     spawn_local(async move {
         match listen("shell-notification", &notify_handler_for_listen).await {
             Ok(unlisten) => {
@@ -230,7 +238,7 @@ fn setup_event_listeners(
                 let error_msg = format!(
                     "Terminal connection failed: shell-notification listener error: {err_text}"
                 );
-                web_sys::console::error_1(&error_msg.clone().into());
+                web_sys::console::error_1(&wasm_bindgen::JsValue::from(error_msg.as_str()));
                 state_notify.set_listener_failed(error_msg.clone());
                 state_notify.show_notification(format!("Terminal is non-functional: {error_msg}"));
             }
@@ -251,7 +259,8 @@ async fn set_home_dir_in_memory(state: TerminalState, is_alive: Arc<AtomicBool>)
     match invoke("get_home_dir", JsValue::NULL).await {
         Ok(home_result) => {
             if let Some(home) = home_result.as_string() {
-                // Presence only; do not store raw home path in memory.
+                // Presence only; do not store raw home path in application state.
+                // Note: temporary local binding is unavoidable for validation.
                 if home.is_empty() {
                     set_presence(false);
                 } else {

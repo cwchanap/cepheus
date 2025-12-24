@@ -18,7 +18,7 @@ pub fn setup_logging() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&log_dir)?;
 
     // Best-effort cleanup of old rotated logs to avoid unbounded disk growth.
-    // We perform this before initializing tracing so we can log subsequent issues normally.
+    // Note: runs before tracing init so it can't use tracing; eprintln! fallback is intentional.
     cleanup_old_logs(&log_dir, MAX_LOG_FILES);
 
     let file_appender = rolling::daily(&log_dir, "terminal.log");

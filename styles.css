@@ -27,6 +27,9 @@
     (var(--notification-padding-y) * 2) +
     var(--notification-border)
   );
+  --error-banner-bg: #5c2020;
+  --error-banner-text: #ffc0c0;
+  --error-banner-border: #ff6b6b;
 
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
   font-size: 14px;
@@ -208,12 +211,12 @@ html, body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background-color: #5c2020;
-  color: #ffc0c0;
+  background-color: var(--error-banner-bg);
+  color: var(--error-banner-text);
   padding: 12px 16px;
   border-radius: 4px;
   margin-bottom: 8px;
-  border: 1px solid #ff6b6b;
+  border: 1px solid var(--error-banner-border);
 }
 
 .terminal-error-banner .error-icon {
