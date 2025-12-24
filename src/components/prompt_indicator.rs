@@ -25,16 +25,18 @@ fn format_cwd(cwd: &str) -> String {
     }
 
     let truncate_component = |s: &str, max_len: usize| -> String {
-        if s.len() <= max_len {
+        let chars: Vec<char> = s.chars().collect();
+        if chars.len() <= max_len {
             return s.to_string();
         }
         let prefix_len = max_len / 2;
         let suffix_len = max_len.saturating_sub(prefix_len + 1);
-        format!(
-            "{}…{}",
-            &s[..prefix_len],
-            &s[s.len().saturating_sub(suffix_len)..]
-        )
+        let prefix: String = chars.iter().take(prefix_len).collect();
+        let suffix: String = chars
+            .iter()
+            .skip(chars.len().saturating_sub(suffix_len))
+            .collect();
+        format!("{prefix}…{suffix}")
     };
 
     let is_windows_drive_prefix = |s: &str| s.len() == 2 && s.ends_with(':');
