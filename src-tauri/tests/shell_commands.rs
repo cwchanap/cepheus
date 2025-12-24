@@ -227,7 +227,7 @@ async fn test_output_truncation() {
     // Generate output that exceeds capacity
     // seq 1 100 will generate 100 lines of output
     #[cfg(windows)]
-    let cmd = "for /L %i in (1,1,100) do @echo %i";
+    let cmd = "for /L %%i in (1,1,100) do @echo %%i";
     #[cfg(not(windows))]
     let cmd = "seq 1 100";
 

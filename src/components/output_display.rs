@@ -60,6 +60,17 @@ pub fn OutputDisplay() -> impl IntoView {
         }
     });
 
+    // Cancel any pending animation frame when component unmounts
+    on_cleanup(|| {
+        RAF_SCROLL_REQUEST.with(|cell| {
+            if let Some((pending_id, _old_closure)) = cell.borrow_mut().take() {
+                if let Some(window) = web_sys::window() {
+                    let _ = window.cancel_animation_frame(pending_id);
+                }
+            }
+        });
+    });
+
     let on_scroll = move |_| {
         if let Some(div) = container_ref.get() {
             // Check if we are at the bottom (with small tolerance)
