@@ -58,23 +58,24 @@ pub fn NotificationBar() -> impl IntoView {
                         state_clone.clear_notification();
                     });
 
-                // Keep the closure alive until timeout fires or is cleared
-                let mut callback_guard = match active_callback.lock() {
-                    Ok(guard) => guard,
-                    Err(poisoned) => {
-                        console::warn_1(&"NotificationBar: active_callback lock poisoned".into());
-                        poisoned.into_inner()
-                    }
-                };
-                *callback_guard = Some(SendWrapper::new(callback));
+                // Only store the callback if scheduling the timeout succeeds.
+                match window().set_timeout_with_callback_and_timeout_and_arguments_0(
+                    callback.as_ref().unchecked_ref(),
+                    3000,
+                ) {
+                    Ok(handle) => {
+                        let mut callback_guard = match active_callback.lock() {
+                            Ok(guard) => guard,
+                            Err(poisoned) => {
+                                console::warn_1(
+                                    &"NotificationBar: active_callback lock poisoned".into(),
+                                );
+                                poisoned.into_inner()
+                            }
+                        };
+                        *callback_guard = Some(SendWrapper::new(callback));
+                        drop(callback_guard);
 
-                if let Some(cb) = callback_guard.as_ref() {
-                    if let Ok(handle) = window()
-                        .set_timeout_with_callback_and_timeout_and_arguments_0(
-                            cb.as_ref().unchecked_ref(),
-                            3000,
-                        )
-                    {
                         let mut timeout_guard = match last_notification_id.lock() {
                             Ok(guard) => guard,
                             Err(poisoned) => {
@@ -85,6 +86,11 @@ pub fn NotificationBar() -> impl IntoView {
                             }
                         };
                         *timeout_guard = Some(handle);
+                    }
+                    Err(e) => {
+                        console::warn_1(
+                            &format!("NotificationBar: failed to set timeout: {e:?}").into(),
+                        );
                     }
                 }
             }

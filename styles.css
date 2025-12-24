@@ -159,7 +159,7 @@ html, body {
 .command-input {
   flex: 1;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-primary);
   font-family: inherit;
   font-size: inherit;
@@ -171,7 +171,7 @@ html, body {
   outline: 2px solid var(--focus-color);
   outline-offset: 1px;
   box-shadow: 0 0 0 1px var(--focus-color);
-  border: 1px solid var(--focus-color);
+  border-color: var(--focus-color);
 }
 
 .command-input::placeholder {
