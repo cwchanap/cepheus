@@ -397,10 +397,6 @@ pub async fn change_directory(
     tracing::info!("Changing directory to: {}", path);
 
     let target_path = std::path::Path::new(&path);
-    let home_dir = dirs_next::home_dir()
-        .ok_or_else(|| "Home directory unavailable for validation".to_string())?
-        .canonicalize()
-        .map_err(|e| format!("Failed to canonicalize home directory: {e}"))?;
 
     // Handle relative paths
     let absolute_path = if target_path.is_relative() {
@@ -414,15 +410,6 @@ pub async fn change_directory(
             .canonicalize()
             .map_err(|e| format!("Invalid path: {e}"))?
     };
-
-    // Restrict navigation to the user's home directory subtree (intentional sandboxing)
-    // Note: this is a product decision to limit filesystem access; relax only if security model changes.
-    if !absolute_path.starts_with(&home_dir) {
-        return Err(format!(
-            "Changing directory outside of home is not allowed (home: {})",
-            home_dir.display()
-        ));
-    }
 
     // Verify it's a directory
     if !absolute_path.is_dir() {

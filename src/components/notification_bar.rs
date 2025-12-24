@@ -3,6 +3,7 @@ use leptos::tachys::dom::window;
 use send_wrapper::SendWrapper;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::JsCast;
+use web_sys::console;
 
 use crate::models::TerminalState;
 
@@ -23,15 +24,28 @@ pub fn NotificationBar() -> impl IntoView {
         let active_callback = Arc::clone(&active_callback);
         move |_| {
             // Cancel any existing timeout before setting a new one
-            if let Ok(mut timeout_guard) = last_notification_id.lock() {
-                if let Some(timeout_id) = *timeout_guard {
-                    window().clear_timeout_with_handle(timeout_id);
-                    *timeout_guard = None;
+            let mut timeout_guard = match last_notification_id.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    console::warn_1(&"NotificationBar: last_notification_id lock poisoned".into());
+                    poisoned.into_inner()
                 }
+            };
+            if let Some(timeout_id) = *timeout_guard {
+                window().clear_timeout_with_handle(timeout_id);
+                *timeout_guard = None;
             }
+            drop(timeout_guard);
 
             // Drop any existing callback
-            if let Ok(mut callback_guard) = active_callback.lock() {
+            {
+                let mut callback_guard = match active_callback.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => {
+                        console::warn_1(&"NotificationBar: active_callback lock poisoned".into());
+                        poisoned.into_inner()
+                    }
+                };
                 callback_guard.take();
             }
 
@@ -45,22 +59,43 @@ pub fn NotificationBar() -> impl IntoView {
                     });
 
                 // Keep the closure alive until timeout fires or is cleared
-                if let Ok(mut callback_guard) = active_callback.lock() {
+                {
+                    let mut callback_guard = match active_callback.lock() {
+                        Ok(guard) => guard,
+                        Err(poisoned) => {
+                            console::warn_1(
+                                &"NotificationBar: active_callback lock poisoned".into(),
+                            );
+                            poisoned.into_inner()
+                        }
+                    };
                     *callback_guard = Some(SendWrapper::new(callback));
                 }
 
-                if let Ok(callback_guard) = active_callback.lock() {
-                    if let Some(cb) = callback_guard.as_ref() {
-                        if let Ok(handle) = window()
-                            .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                cb.as_ref().unchecked_ref(),
-                                3000,
-                            )
-                        {
-                            if let Ok(mut timeout_guard) = last_notification_id.lock() {
-                                *timeout_guard = Some(handle);
+                let callback_guard = match active_callback.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => {
+                        console::warn_1(&"NotificationBar: active_callback lock poisoned".into());
+                        poisoned.into_inner()
+                    }
+                };
+                if let Some(cb) = callback_guard.as_ref() {
+                    if let Ok(handle) = window()
+                        .set_timeout_with_callback_and_timeout_and_arguments_0(
+                            cb.as_ref().unchecked_ref(),
+                            3000,
+                        )
+                    {
+                        let mut timeout_guard = match last_notification_id.lock() {
+                            Ok(guard) => guard,
+                            Err(poisoned) => {
+                                console::warn_1(
+                                    &"NotificationBar: last_notification_id lock poisoned".into(),
+                                );
+                                poisoned.into_inner()
                             }
-                        }
+                        };
+                        *timeout_guard = Some(handle);
                     }
                 }
             }
@@ -72,15 +107,27 @@ pub fn NotificationBar() -> impl IntoView {
         let last_notification_id = Arc::clone(&last_notification_id);
         let active_callback = Arc::clone(&active_callback);
         move || {
-            if let Ok(mut timeout_guard) = last_notification_id.lock() {
-                if let Some(timeout_id) = *timeout_guard {
-                    window().clear_timeout_with_handle(timeout_id);
-                    *timeout_guard = None;
+            let mut timeout_guard = match last_notification_id.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    console::warn_1(&"NotificationBar: last_notification_id lock poisoned".into());
+                    poisoned.into_inner()
                 }
+            };
+            if let Some(timeout_id) = *timeout_guard {
+                window().clear_timeout_with_handle(timeout_id);
+                *timeout_guard = None;
             }
-            if let Ok(mut callback_guard) = active_callback.lock() {
-                callback_guard.take();
-            }
+            drop(timeout_guard);
+
+            let mut callback_guard = match active_callback.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => {
+                    console::warn_1(&"NotificationBar: active_callback lock poisoned".into());
+                    poisoned.into_inner()
+                }
+            };
+            callback_guard.take();
         }
     });
 

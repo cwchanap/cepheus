@@ -105,32 +105,29 @@ type ListenerStore = StoredValue<ListenerHandles, LocalStorage>;
 fn cleanup_listener_handles(handles: ListenerStore) {
     handles.update_value(|handles| {
         if let Some(handle) = handles.output.take() {
-            call_unlisten(handle.unlisten, "output-line");
+            if let Err(e) = call_unlisten(handle.unlisten) {
+                web_sys::console::error_1(
+                    &format!("Failed to unlisten output-line handler: {e:?}").into(),
+                );
+            }
             drop(handle.callback);
         }
 
         if let Some(handle) = handles.notify.take() {
-            call_unlisten(handle.unlisten, "shell-notification");
+            if let Err(e) = call_unlisten(handle.unlisten) {
+                web_sys::console::error_1(
+                    &format!("Failed to unlisten shell-notification handler: {e:?}").into(),
+                );
+            }
             drop(handle.callback);
         }
     });
 }
 
-fn call_unlisten(unlisten: JsValue, label: &str) {
-    match unlisten.dyn_into::<Function>() {
-        Ok(func) => {
-            if let Err(e) = func.call0(&JsValue::NULL) {
-                web_sys::console::error_1(
-                    &format!("Failed to unlisten {label} handler: {e:?}").into(),
-                );
-            }
-        }
-        Err(_) => {
-            web_sys::console::warn_1(
-                &format!("Unlisten handle for {label} was not a function").into(),
-            );
-        }
-    }
+fn call_unlisten(unlisten: JsValue) -> Result<(), JsValue> {
+    let func: Function = unlisten.dyn_into()?;
+    func.call0(&JsValue::NULL)?;
+    Ok(())
 }
 
 /// Set up Tauri event listeners for output-line and shell-notification events
@@ -166,7 +163,12 @@ fn setup_event_listeners(
         match listen("output-line", &output_handler_for_listen).await {
             Ok(unlisten) => {
                 if !is_alive_output.load(Ordering::SeqCst) {
-                    call_unlisten(unlisten, "output-line");
+                    if let Err(e) = call_unlisten(unlisten) {
+                        web_sys::console::warn_1(
+                            &format!("Failed to unlisten output-line handler after unmount: {e:?}")
+                                .into(),
+                        );
+                    }
                     return;
                 }
                 listeners_output.update_value(|handles| {
@@ -220,7 +222,12 @@ fn setup_event_listeners(
         match listen("shell-notification", &notify_handler_for_listen).await {
             Ok(unlisten) => {
                 if !is_alive_notify.load(Ordering::SeqCst) {
-                    call_unlisten(unlisten, "shell-notification");
+                    if let Err(e) = call_unlisten(unlisten) {
+                        web_sys::console::warn_1(
+                            &format!("Failed to unlisten shell-notification handler after unmount: {e:?}")
+                            .into(),
+                        );
+                    }
                     return;
                 }
                 listeners_notify.update_value(|handles| {
