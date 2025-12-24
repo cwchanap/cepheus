@@ -62,8 +62,8 @@ fn format_cwd(cwd: &str) -> String {
     } else if normalized.starts_with("//") {
         // UNC path: //server/share/...
         if components.len() >= 3 {
-            let share = truncate_component(components[1], 12);
             let server = truncate_component(components[0], 12);
+            let share = truncate_component(components[1], 12);
             format!("//{server}/{share}/.../{second_last}/{last}")
         } else {
             // Two-component UNC: //server/share — keep concise

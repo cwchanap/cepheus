@@ -59,26 +59,15 @@ pub fn NotificationBar() -> impl IntoView {
                     });
 
                 // Keep the closure alive until timeout fires or is cleared
-                {
-                    let mut callback_guard = match active_callback.lock() {
-                        Ok(guard) => guard,
-                        Err(poisoned) => {
-                            console::warn_1(
-                                &"NotificationBar: active_callback lock poisoned".into(),
-                            );
-                            poisoned.into_inner()
-                        }
-                    };
-                    *callback_guard = Some(SendWrapper::new(callback));
-                }
-
-                let callback_guard = match active_callback.lock() {
+                let mut callback_guard = match active_callback.lock() {
                     Ok(guard) => guard,
                     Err(poisoned) => {
                         console::warn_1(&"NotificationBar: active_callback lock poisoned".into());
                         poisoned.into_inner()
                     }
                 };
+                *callback_guard = Some(SendWrapper::new(callback));
+
                 if let Some(cb) = callback_guard.as_ref() {
                     if let Ok(handle) = window()
                         .set_timeout_with_callback_and_timeout_and_arguments_0(
